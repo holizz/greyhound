@@ -1,4 +1,4 @@
-package phpprocess
+package greyhound
 
 import (
 	"bufio"
