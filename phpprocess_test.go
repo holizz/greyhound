@@ -95,3 +95,27 @@ func TestErrors(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Undefined variable: abc in")
 	assert.Contains(t, w.Body.String(), "/error.php on line 1")
 }
+
+func TestErrorReset(t *testing.T) {
+	ph, err := NewPhpProcess("test-dir")
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	// First request
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/multiple-errors.php", nil)
+	assert.Nil(t, err)
+	err = ph.MakeRequest(w, r)
+	assert.Nil(t, err)
+	assert.Equal(t, w.Code, 500)
+
+	// Second request
+	w = httptest.NewRecorder()
+	r, err = http.NewRequest("GET", "/abc.php", nil)
+	assert.Nil(t, err)
+	err = ph.MakeRequest(w, r)
+	assert.Nil(t, err)
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "abc")
+}
