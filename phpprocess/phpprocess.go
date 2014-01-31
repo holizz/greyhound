@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
+	"os/exec"
 	"time"
 )
 
@@ -14,7 +14,7 @@ type PhpProcess struct {
 	dir string
 	port int
 	host string
-	proc *os.Process
+	cmd *exec.Cmd
 }
 
 func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
@@ -25,7 +25,7 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 			// otherwise PHP only listens on ::1
 			host: fmt.Sprintf("127.0.0.1:%d", p),
 		}
-		ph.proc, err = runPhp(ph.dir, ph.host)
+		ph.cmd, err = runPhp(ph.dir, ph.host)
 		if err == nil {
 			return
 		}
@@ -34,7 +34,7 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 }
 
 func (ph *PhpProcess) Close() {
-	err := ph.proc.Kill()
+	err := ph.cmd.Process.Kill()
 	if err != nil {
 		panic(err)
 	}
@@ -59,19 +59,18 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	return
 }
 
-func runPhp(dir string, host string) (proc *os.Process, err error) {
-	proc, err = os.StartProcess(
-		"/usr/bin/php",
-		[]string{
-			"-n", // do not read php.ini
-			"-S", host,
-			"-t", dir,
-			"-d", "display_errors=Off",
-			"-d", "log_errors=On",
-			"-d", "error_reporting=E_ALL",
-		},
-		&os.ProcAttr{},
+func runPhp(dir string, host string) (cmd *exec.Cmd, err error) {
+	cmd = exec.Command(
+		"php",
+		"-n", // do not read php.ini
+		"-S", host,
+		"-t", dir,
+		"-d", "display_errors=Off",
+		"-d", "log_errors=On",
+		"-d", "error_reporting=E_ALL",
 	)
+
+	err = cmd.Start()
 
 	if err != nil {
 		return
@@ -80,14 +79,7 @@ func runPhp(dir string, host string) (proc *os.Process, err error) {
 	e := make(chan error)
 
 	go func() {
-		state, err := proc.Wait()
-		if err != nil {
-			e <- err
-		}
-		if !state.Success() {
-			e <- errors.New("Process returned a non-zero exit status")
-		}
-		e <- nil
+		e <- cmd.Wait()
 	}()
 
 	select {

@@ -9,11 +9,11 @@ import (
 
 func TestRunPhpReturnsErrors(t *testing.T) {
 	p1, err := runPhp("test-dir", "localhost:31524")
-	defer p1.Kill()
+	defer p1.Process.Kill()
 	assert.Nil(t, err)
 
 	p2, err := runPhp("test-dir", "localhost:31524")
-	defer p2.Kill()
+	defer p2.Process.Kill()
 	assert.NotNil(t, err)
 }
 
@@ -42,7 +42,7 @@ func TestNormalRequest(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, w.Code, 200)
-	assert.Equal(t, w.Body.String(), "abc123")
+	assert.Equal(t, w.Body.String(), "abc")
 }
 
 func TestHeaders(t *testing.T) {
@@ -59,5 +59,5 @@ func TestHeaders(t *testing.T) {
 
 	assert.Equal(t, w.Code, 404)
 	assert.Equal(t, w.HeaderMap["X-Golang-Is"], "Awesome")
-	assert.Equal(t, w.Body.String(), "Hello from PHP")
+	assert.Equal(t, w.Body.String(), "Hello from PHP\n")
 }
