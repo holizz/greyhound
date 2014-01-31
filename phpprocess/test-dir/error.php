@@ -1,2 +1,1 @@
-<?php
-echo $abc;
+123 <?php echo $abc ?>

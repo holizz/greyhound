@@ -1,6 +1,7 @@
 package phpprocess
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"math"
@@ -20,7 +21,9 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 	for p := 8001; p < int(math.Pow(2, 16)); p++ {
 		ph = &PhpProcess{
 			dir: dir,
-			host: fmt.Sprintf("localhost:%d", p),
+			// Use 127.0.0.1 here instead of localhost
+			// otherwise PHP only listens on ::1
+			host: fmt.Sprintf("127.0.0.1:%d", p),
 		}
 		ph.proc, err = runPhp(ph.dir, ph.host)
 		if err == nil {
@@ -30,14 +33,30 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 	return nil, errors.New("No free ports found")
 }
 
-func (ph *PhpProcess)Close() {
+func (ph *PhpProcess) Close() {
 	err := ph.proc.Kill()
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (ph *PhpProcess)MakeRequest(w http.ResponseWriter, r *http.Request) {
+func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err error) {
+	u := r.URL
+	u.Scheme = "http"
+	u.Host = ph.host
+
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	w.WriteHeader(resp.StatusCode)
+	bufWriter := bufio.NewWriter(w)
+	bufWriter.ReadFrom(resp.Body)
+	bufWriter.Flush()
+
+	return
 }
 
 func runPhp(dir string, host string) (proc *os.Process, err error) {
