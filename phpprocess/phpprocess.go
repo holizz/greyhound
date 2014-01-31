@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -45,9 +46,20 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	u.Scheme = "http"
 	u.Host = ph.host
 
-	resp, err := http.Get(u.String())
-	if err != nil {
+	// Set up a client which won't redirect
+	client := &http.Client{
+		CheckRedirect: func (req *http.Request, via []*http.Request) error {
+			return errors.New("STOP")
+		},
+	}
+
+	// Make the request
+	resp, err := client.Get(u.String())
+	if err != nil && !strings.HasSuffix(err.Error(), "STOP") {
+		fmt.Println(err)
 		return
+	} else {
+		err = nil
 	}
 	defer resp.Body.Close()
 

@@ -61,3 +61,20 @@ func TestHeaders(t *testing.T) {
 	assert.Equal(t, w.HeaderMap["X-Golang-Is"], []string{"Awesome"})
 	assert.Equal(t, w.Body.String(), "Hello from PHP\n")
 }
+
+func TestRedirects(t *testing.T) {
+	ph, err := NewPhpProcess("test-dir")
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/redirect.php", nil)
+	assert.Nil(t, err)
+
+	err = ph.MakeRequest(w, r)
+	assert.Nil(t, err)
+
+	assert.Equal(t, w.Code, 301)
+	assert.Equal(t, w.HeaderMap["Location"], []string{"/"})
+	assert.Equal(t, w.Body.String(), "")
+}
