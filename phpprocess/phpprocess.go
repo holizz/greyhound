@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"math"
 	"net/http"
@@ -69,8 +70,8 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 		select {
 		case <-c:
 			break FOR
-		case <-ph.phpErrors:
-			w.WriteHeader(http.StatusInternalServerError)
+		case line := <-ph.phpErrors:
+			renderError(w, line)
 			thereWereErrors = true
 		}
 	}
@@ -110,6 +111,13 @@ func (ph *PhpProcess) listenForErrors() {
 			ph.phpErrors <- line[40:]
 		}
 	}
+}
+
+func renderError(w http.ResponseWriter, s string) {
+	w.WriteHeader(http.StatusInternalServerError)
+
+	tmpl := template.Must(template.New("").Parse(`<pre>{{.}}</pre>`))
+	tmpl.Execute(w, s)
 }
 
 // A low-level command

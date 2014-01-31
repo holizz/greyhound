@@ -92,4 +92,6 @@ func TestErrors(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, w.Code, 500)
+	assert.Contains(t, w.Body.String(), "Undefined variable: abc in")
+	assert.Contains(t, w.Body.String(), "/error.php on line 1")
 }
