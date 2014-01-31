@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"os/exec"
@@ -15,6 +16,8 @@ type PhpProcess struct {
 	port int
 	host string
 	cmd *exec.Cmd
+	stderr *bufio.Reader
+	phpErrors chan string
 }
 
 func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
@@ -25,9 +28,14 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 			// otherwise PHP only listens on ::1
 			host: fmt.Sprintf("127.0.0.1:%d", p),
 		}
-		ph.cmd, err = runPhp(ph.dir, ph.host)
+		cmd, stderr, err := runPhp(ph.dir, ph.host)
+
 		if err == nil {
-			return
+			ph.cmd = cmd
+			ph.stderr = bufio.NewReader(stderr)
+			ph.phpErrors = make(chan string)
+			go ph.listenForErrors()
+			return ph, nil
 		}
 	}
 	return nil, errors.New("No free ports found")
@@ -53,6 +61,24 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	}
 	defer resp.Body.Close()
 
+	// Check for errors
+	thereWereErrors := false
+	c := time.After(time.Second)
+
+	FOR: for {
+		select {
+		case <-c:
+			break FOR
+		case <-ph.phpErrors:
+			w.WriteHeader(http.StatusInternalServerError)
+			thereWereErrors = true
+		}
+	}
+
+	if thereWereErrors {
+		return
+	}
+
 	// Headers
 	headers := w.Header()
 	for k, v := range resp.Header {
@@ -70,9 +96,25 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	return
 }
 
+func (ph *PhpProcess) listenForErrors() {
+	for {
+		line, err := ph.stderr.ReadString('\n')
+		if err != nil {
+			if err.Error() == "EOF" {
+				return
+			} else {
+				panic(err)
+			}
+		}
+		if line[25:37] != "] 127.0.0.1:" {
+			ph.phpErrors <- line[40:]
+		}
+	}
+}
+
 // A low-level command
 // Starts PHP running, waits one second, returns an error if PHP stopped during that time
-func runPhp(dir string, host string) (cmd *exec.Cmd, err error) {
+func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err error) {
 	cmd = exec.Command(
 		"php",
 		"-n", // do not read php.ini
@@ -83,12 +125,20 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, err error) {
 		"-d", "error_reporting=E_ALL",
 	)
 
-	err = cmd.Start()
-
+	// Connect stderr
+	stderr, err = cmd.StderrPipe()
 	if err != nil {
 		return
 	}
 
+	// Let's go
+	err = cmd.Start()
+	if err != nil {
+		return
+	}
+
+	// Wait 1 second for the command to terminate
+	// If it exits early, that's bad whatever the exit status
 	e := make(chan error)
 
 	go func() {

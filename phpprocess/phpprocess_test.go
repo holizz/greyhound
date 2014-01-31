@@ -8,11 +8,11 @@ import (
 )
 
 func TestRunPhpReturnsErrors(t *testing.T) {
-	p1, err := runPhp("test-dir", "localhost:31524")
+	p1, _, err := runPhp("test-dir", "localhost:31524")
 	defer p1.Process.Kill()
 	assert.Nil(t, err)
 
-	p2, err := runPhp("test-dir", "localhost:31524")
+	p2, _, err := runPhp("test-dir", "localhost:31524")
 	defer p2.Process.Kill()
 	assert.NotNil(t, err)
 }
@@ -77,4 +77,19 @@ func TestRedirects(t *testing.T) {
 	assert.Equal(t, w.Code, 301)
 	assert.Equal(t, w.HeaderMap["Location"], []string{"/"})
 	assert.Equal(t, w.Body.String(), "")
+}
+
+func TestErrors(t *testing.T) {
+	ph, err := NewPhpProcess("test-dir")
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/error.php", nil)
+	assert.Nil(t, err)
+
+	err = ph.MakeRequest(w, r)
+	assert.Nil(t, err)
+
+	assert.Equal(t, w.Code, 500)
 }
