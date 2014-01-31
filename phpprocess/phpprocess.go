@@ -51,7 +51,16 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	}
 	defer resp.Body.Close()
 
+	// Headers
+	headers := w.Header()
+	for k, v := range resp.Header {
+		headers[k] = v
+	}
+
+	// Status code
 	w.WriteHeader(resp.StatusCode)
+
+	// Body
 	bufWriter := bufio.NewWriter(w)
 	bufWriter.ReadFrom(resp.Body)
 	bufWriter.Flush()
@@ -59,6 +68,8 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	return
 }
 
+// A low-level command
+// Starts PHP running, waits one second, returns an error if PHP stopped during that time
 func runPhp(dir string, host string) (cmd *exec.Cmd, err error) {
 	cmd = exec.Command(
 		"php",
@@ -79,7 +90,12 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, err error) {
 	e := make(chan error)
 
 	go func() {
-		e <- cmd.Wait()
+		err := cmd.Wait()
+		if err != nil {
+			e <- err
+		} else {
+			e <- errors.New("Command exited early")
+		}
 	}()
 
 	select {

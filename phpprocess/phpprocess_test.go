@@ -58,6 +58,6 @@ func TestHeaders(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, w.Code, 404)
-	assert.Equal(t, w.HeaderMap["X-Golang-Is"], "Awesome")
+	assert.Equal(t, w.HeaderMap["X-Golang-Is"], []string{"Awesome"})
 	assert.Equal(t, w.Body.String(), "Hello from PHP\n")
 }
