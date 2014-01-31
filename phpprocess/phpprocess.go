@@ -2,32 +2,43 @@ package phpprocess
 
 import (
 	"errors"
-	// "net/http"
+	"fmt"
+	"math"
+	"net/http"
 	"os"
 	"time"
 )
 
-// type PhpProcess struct {
-// 	dir string
-// 	port int
-// 	host string
-// 	cmd *exec.Cmd
-// }
+type PhpProcess struct {
+	dir string
+	port int
+	host string
+	proc *os.Process
+}
 
-// func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
-// 	ph = &PhpProcess{
-// 		dir: dir,
-// 		host: "localhost:8001",
-// 	}
-// 	ph.cmd, err = runPhp(ph.dir, ph.host)
-// 	return
-// }
+func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
+	for p := 8001; p < int(math.Pow(2, 16)); p++ {
+		ph = &PhpProcess{
+			dir: dir,
+			host: fmt.Sprintf("localhost:%d", p),
+		}
+		ph.proc, err = runPhp(ph.dir, ph.host)
+		if err == nil {
+			return
+		}
+	}
+	return nil, errors.New("No free ports found")
+}
 
-// func (ph PhpProcess)Close() {
-// }
+func (ph *PhpProcess)Close() {
+	err := ph.proc.Kill()
+	if err != nil {
+		panic(err)
+	}
+}
 
-// func (ph PhpProcess)MakeRequest(w http.ResponseWriter, r *http.Request) {
-// }
+func (ph *PhpProcess)MakeRequest(w http.ResponseWriter, r *http.Request) {
+}
 
 func runPhp(dir string, host string) (proc *os.Process, err error) {
 	proc, err = os.StartProcess(
