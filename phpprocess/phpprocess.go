@@ -7,7 +7,6 @@ import (
 	"math"
 	"net/http"
 	"os/exec"
-	"strings"
 	"time"
 )
 
@@ -42,24 +41,15 @@ func (ph *PhpProcess) Close() {
 }
 
 func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err error) {
-	u := r.URL
-	u.Scheme = "http"
-	u.Host = ph.host
-
-	// Set up a client which won't redirect
-	client := &http.Client{
-		CheckRedirect: func (req *http.Request, via []*http.Request) error {
-			return errors.New("STOP")
-		},
-	}
+	r.URL.Scheme = "http"
+	r.URL.Host = ph.host
 
 	// Make the request
-	resp, err := client.Get(u.String())
-	if err != nil && !strings.HasSuffix(err.Error(), "STOP") {
-		fmt.Println(err)
+	tr := &http.Transport{}
+
+	resp, err := tr.RoundTrip(r)
+	if err != nil {
 		return
-	} else {
-		err = nil
 	}
 	defer resp.Body.Close()
 
