@@ -13,10 +13,10 @@ import (
 	"time"
 )
 
-// A PhpProcess represents a single PHP process running the built-in Web server.
+// A PhpHandler represents a single PHP process running the built-in Web server.
 //
-// Due to the need to check for errors in the STDERR of the process it only allows one call to MakeRequest() at a time (using sync.Mutex).
-type PhpProcess struct {
+// Due to the need to check for errors in the STDERR of the process it only allows one call to ServeHTTP() at a time (using sync.Mutex).
+type PhpHandler struct {
 	dir        string
 	port       int
 	host       string
@@ -31,16 +31,16 @@ type PhpProcess struct {
 // Start up a new PHP server listening on the first free port (between port 8001 and 2^16).
 //
 // Usage:
-// 	ph, err := NewPhpProcess("/path/to/web/root", 1000)
+// 	ph, err := NewPhpHandler("/path/to/web/root", 1000)
 // 	if err != nil {
 // 	        panic(err)
 // 	}
 // 	defer ph.Close()
 //
 // timeout is in milliseconds
-func NewPhpProcess(dir string, timeout int) (ph *PhpProcess, err error) {
+func NewPhpHandler(dir string, timeout int) (ph *PhpHandler, err error) {
 	for p := 8001; p < int(math.Pow(2, 16)); p++ {
-		ph = &PhpProcess{
+		ph = &PhpHandler{
 			dir: dir,
 			// Use 127.0.0.1 here instead of localhost
 			// otherwise PHP only listens on ::1
@@ -63,7 +63,7 @@ func NewPhpProcess(dir string, timeout int) (ph *PhpProcess, err error) {
 }
 
 // Don't forget to call this!
-func (ph *PhpProcess) Close() {
+func (ph *PhpHandler) Close() {
 	err := ph.cmd.Process.Kill()
 	if err != nil {
 		panic(err)
@@ -72,8 +72,8 @@ func (ph *PhpProcess) Close() {
 
 // Make a request. Sends an http.Request to the PHP process, writes what it gets to an http.ResponseWriter.
 //
-// If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpProcess()).
-func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err error) {
+// If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpHandler()).
+func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) (err error) {
 	ph.mutex.Lock()
 	defer ph.mutex.Unlock()
 
@@ -144,7 +144,7 @@ FOR:
 }
 
 // Converts bufio.Reader into chan for ease of use during the request
-func (ph *PhpProcess) listenForErrors() {
+func (ph *PhpHandler) listenForErrors() {
 	for {
 		line, err := ph.stderr.ReadString('\n')
 		if err != nil {
