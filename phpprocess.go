@@ -218,8 +218,7 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err e
 	}()
 
 	select {
-	// Experimentally, 100ms works and 10ms doesn't
-	case <-time.After(time.Millisecond * 100):
+	case <-time.After(time.Millisecond * 500):
 		return
 	case err = <-e:
 		return
