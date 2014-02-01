@@ -19,7 +19,8 @@ type PhpProcess struct {
 	host string
 	cmd *exec.Cmd
 	stderr *bufio.Reader
-	phpErrors chan string
+	errorLog chan string
+	requestLog chan string
 	mutex *sync.Mutex
 }
 
@@ -36,7 +37,8 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 		if err == nil {
 			ph.cmd = cmd
 			ph.stderr = bufio.NewReader(stderr)
-			ph.phpErrors = make(chan string)
+			ph.errorLog = make(chan string)
+			ph.requestLog = make(chan string)
 			ph.mutex = &sync.Mutex{}
 			go ph.listenForErrors()
 			return ph, nil
@@ -70,14 +72,15 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 
 	// Check for errors
 	thereWereErrors := false
-	// Experimentally, 1ms works, 100mcs doesn't work
-	c := time.After(time.Millisecond)
+
+	// The request gets printed to STDERR only after the errors
+	// So it's a reliable way to confirm that the page was returned
 
 	FOR: for {
 		select {
-		case <-c:
+		case <-ph.requestLog:
 			break FOR
-		case line := <-ph.phpErrors:
+		case line := <-ph.errorLog:
 			renderError(w, line)
 			thereWereErrors = true
 		}
@@ -114,8 +117,11 @@ func (ph *PhpProcess) listenForErrors() {
 				panic(err)
 			}
 		}
+
 		if line[25:37] != "] 127.0.0.1:" {
-			ph.phpErrors <- line[40:]
+			ph.errorLog <- line[40:]
+		} else {
+			ph.requestLog <- line[38:]
 		}
 	}
 }
