@@ -14,14 +14,14 @@ import (
 )
 
 type PhpProcess struct {
-	dir string
-	port int
-	host string
-	cmd *exec.Cmd
-	stderr *bufio.Reader
-	errorLog chan string
+	dir        string
+	port       int
+	host       string
+	cmd        *exec.Cmd
+	stderr     *bufio.Reader
+	errorLog   chan string
 	requestLog chan string
-	mutex *sync.Mutex
+	mutex      *sync.Mutex
 }
 
 func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
@@ -76,7 +76,8 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	// The request gets printed to STDERR only after the errors
 	// So it's a reliable way to confirm that the page was returned
 
-	FOR: for {
+FOR:
+	for {
 		select {
 		case <-ph.requestLog:
 			break FOR
@@ -172,8 +173,8 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err e
 	}()
 
 	select {
-		// Experimentally, 100ms works and 10ms doesn't
-	case <-time.After(time.Millisecond*100):
+	// Experimentally, 100ms works and 10ms doesn't
+	case <-time.After(time.Millisecond * 100):
 		return
 	case err = <-e:
 		return
