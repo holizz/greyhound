@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// A PhpProcess represents a single PHP process running the built-in Web server.
+//
+// Due to the need to check for errors in the STDERR of the process it only allows one call to MakeRequest() at a time (using sync.Mutex).
 type PhpProcess struct {
 	dir        string
 	port       int
@@ -25,6 +28,16 @@ type PhpProcess struct {
 	timeout    int
 }
 
+// Start up a new PHP server listening on the first free port (between port 8001 and 2^16).
+//
+// Usage:
+// 	ph, err := NewPhpProcess("/path/to/web/root", 1000)
+// 	if err != nil {
+// 	        panic(err)
+// 	}
+// 	defer ph.Close()
+//
+// timeout is in milliseconds
 func NewPhpProcess(dir string, timeout int) (ph *PhpProcess, err error) {
 	for p := 8001; p < int(math.Pow(2, 16)); p++ {
 		ph = &PhpProcess{
@@ -49,6 +62,7 @@ func NewPhpProcess(dir string, timeout int) (ph *PhpProcess, err error) {
 	return nil, errors.New("No free ports found")
 }
 
+// Don't forget to call this!
 func (ph *PhpProcess) Close() {
 	err := ph.cmd.Process.Kill()
 	if err != nil {
@@ -56,6 +70,9 @@ func (ph *PhpProcess) Close() {
 	}
 }
 
+// Make a request. Sends an http.Request to the PHP process, writes what it gets to an http.ResponseWriter.
+//
+// If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpProcess()).
 func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err error) {
 	ph.mutex.Lock()
 	defer ph.mutex.Unlock()
@@ -126,6 +143,7 @@ FOR:
 	return
 }
 
+// Converts bufio.Reader into chan for ease of use during the request
 func (ph *PhpProcess) listenForErrors() {
 	for {
 		line, err := ph.stderr.ReadString('\n')
@@ -145,6 +163,7 @@ func (ph *PhpProcess) listenForErrors() {
 	}
 }
 
+// Render the error template
 func renderError(w http.ResponseWriter, s string) {
 	w.WriteHeader(http.StatusInternalServerError)
 
@@ -152,6 +171,7 @@ func renderError(w http.ResponseWriter, s string) {
 	tmpl.Execute(w, s)
 }
 
+// Render the timeout template
 func renderTimeout(w http.ResponseWriter, timeout int) {
 	w.WriteHeader(http.StatusInternalServerError)
 
