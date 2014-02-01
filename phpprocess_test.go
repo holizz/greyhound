@@ -119,3 +119,28 @@ func TestErrorReset(t *testing.T) {
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "abc")
 }
+
+func TestLocking(t *testing.T) {
+	ph, err := NewPhpProcess("test-dir")
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	// First request
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/wait-and-error.php", nil)
+	assert.Nil(t, err)
+	go func() {
+		err = ph.MakeRequest(w, r)
+		assert.Nil(t, err)
+		assert.Equal(t, w.Code, 500)
+	}()
+
+	// Second request
+	w = httptest.NewRecorder()
+	r, err = http.NewRequest("GET", "/abc.php", nil)
+	assert.Nil(t, err)
+	err = ph.MakeRequest(w, r)
+	assert.Nil(t, err)
+	assert.Equal(t, w.Code, 200)
+}

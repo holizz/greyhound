@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"os/exec"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type PhpProcess struct {
 	cmd *exec.Cmd
 	stderr *bufio.Reader
 	phpErrors chan string
+	mutex *sync.Mutex
 }
 
 func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
@@ -35,6 +37,7 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 			ph.cmd = cmd
 			ph.stderr = bufio.NewReader(stderr)
 			ph.phpErrors = make(chan string)
+			ph.mutex = &sync.Mutex{}
 			go ph.listenForErrors()
 			return ph, nil
 		}
@@ -50,6 +53,9 @@ func (ph *PhpProcess) Close() {
 }
 
 func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err error) {
+	ph.mutex.Lock()
+	defer ph.mutex.Unlock()
+
 	r.URL.Scheme = "http"
 	r.URL.Host = ph.host
 
