@@ -70,7 +70,8 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 
 	// Check for errors
 	thereWereErrors := false
-	c := time.After(time.Second)
+	// Experimentally, 1ms works, 100mcs doesn't work
+	c := time.After(time.Millisecond)
 
 	FOR: for {
 		select {
@@ -165,7 +166,8 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err e
 	}()
 
 	select {
-	case <-time.After(time.Second):
+		// Experimentally, 100ms works and 10ms doesn't
+	case <-time.After(time.Millisecond*100):
 		return
 	case err = <-e:
 		return
