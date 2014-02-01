@@ -22,9 +22,10 @@ type PhpProcess struct {
 	errorLog   chan string
 	requestLog chan string
 	mutex      *sync.Mutex
+	timeout    int
 }
 
-func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
+func NewPhpProcess(dir string, timeout int) (ph *PhpProcess, err error) {
 	for p := 8001; p < int(math.Pow(2, 16)); p++ {
 		ph = &PhpProcess{
 			dir: dir,
@@ -35,6 +36,7 @@ func NewPhpProcess(dir string) (ph *PhpProcess, err error) {
 		cmd, stderr, err := runPhp(ph.dir, ph.host)
 
 		if err == nil {
+			ph.timeout = timeout
 			ph.cmd = cmd
 			ph.stderr = bufio.NewReader(stderr)
 			ph.errorLog = make(chan string)
@@ -64,7 +66,23 @@ func (ph *PhpProcess) MakeRequest(w http.ResponseWriter, r *http.Request) (err e
 	// Make the request
 	tr := &http.Transport{}
 
-	resp, err := tr.RoundTrip(r)
+	// Timeout stuff
+	var resp *http.Response
+	wait := make(chan bool)
+
+	go func() {
+		resp, err = tr.RoundTrip(r)
+		wait <- true
+	}()
+
+	select {
+	case <-wait:
+	case <-time.After(time.Millisecond * time.Duration(ph.timeout)):
+		renderTimeout(w, ph.timeout)
+		return
+	}
+	// End timeout stuff
+
 	if err != nil {
 		return
 	}
@@ -132,6 +150,13 @@ func renderError(w http.ResponseWriter, s string) {
 
 	tmpl := template.Must(template.New("").Parse(`<pre>{{.}}</pre>`))
 	tmpl.Execute(w, s)
+}
+
+func renderTimeout(w http.ResponseWriter, timeout int) {
+	w.WriteHeader(http.StatusInternalServerError)
+
+	tmpl := template.Must(template.New("").Parse(`<p>Waited for {{.}}ms and PHP didn't respond!</p>`))
+	tmpl.Execute(w, timeout)
 }
 
 // A low-level command

@@ -18,11 +18,11 @@ func TestRunPhpReturnsErrors(t *testing.T) {
 }
 
 func TestListenOnDifferentPorts(t *testing.T) {
-	ph1, err := NewPhpProcess("test-dir")
+	ph1, err := NewPhpProcess("test-dir", 1000)
 	defer ph1.Close()
 	assert.Nil(t, err)
 
-	ph2, err := NewPhpProcess("test-dir")
+	ph2, err := NewPhpProcess("test-dir", 1000)
 	defer ph2.Close()
 	assert.Nil(t, err)
 
@@ -30,7 +30,7 @@ func TestListenOnDifferentPorts(t *testing.T) {
 }
 
 func TestNormalRequest(t *testing.T) {
-	ph, err := NewPhpProcess("test-dir")
+	ph, err := NewPhpProcess("test-dir", 1000)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -46,7 +46,7 @@ func TestNormalRequest(t *testing.T) {
 }
 
 func TestHeaders(t *testing.T) {
-	ph, err := NewPhpProcess("test-dir")
+	ph, err := NewPhpProcess("test-dir", 1000)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -63,7 +63,7 @@ func TestHeaders(t *testing.T) {
 }
 
 func TestRedirects(t *testing.T) {
-	ph, err := NewPhpProcess("test-dir")
+	ph, err := NewPhpProcess("test-dir", 1000)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -80,7 +80,7 @@ func TestRedirects(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	ph, err := NewPhpProcess("test-dir")
+	ph, err := NewPhpProcess("test-dir", 1000)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -97,7 +97,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestErrorReset(t *testing.T) {
-	ph, err := NewPhpProcess("test-dir")
+	ph, err := NewPhpProcess("test-dir", 1000)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -121,7 +121,7 @@ func TestErrorReset(t *testing.T) {
 }
 
 func TestLocking(t *testing.T) {
-	ph, err := NewPhpProcess("test-dir")
+	ph, err := NewPhpProcess("test-dir", 1000)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -143,4 +143,17 @@ func TestLocking(t *testing.T) {
 	err = ph.MakeRequest(w, r)
 	assert.Nil(t, err)
 	assert.Equal(t, w.Code, 200)
+}
+
+func TestTimeout(t *testing.T) {
+	ph, err := NewPhpProcess("test-dir", 100)
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/wait-too-long.php", nil)
+	assert.Nil(t, err)
+	err = ph.MakeRequest(w, r)
+	assert.Nil(t, err)
+	assert.Equal(t, w.Code, 500)
 }
