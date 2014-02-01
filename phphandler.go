@@ -28,7 +28,7 @@ type PhpHandler struct {
 	timeout    int
 }
 
-// Start up a new PHP server listening on the first free port (between port 8001 and 2^16).
+// NewPhpHandler starts a new PHP server listening on the first free port (between port 8001 and 2^16).
 //
 // Usage:
 // 	ph, err := NewPhpHandler("/path/to/web/root", 1000)
@@ -59,10 +59,10 @@ func NewPhpHandler(dir string, timeout int) (ph *PhpHandler, err error) {
 			return ph, nil
 		}
 	}
-	return nil, errors.New("No free ports found")
+	return nil, errors.New("no free ports found")
 }
 
-// Don't forget to call this!
+// Close must be called after a successful call to NewPhpHandler otherwise you may get stray PHP processes floating around.
 func (ph *PhpHandler) Close() {
 	err := ph.cmd.Process.Kill()
 	if err != nil {
@@ -70,9 +70,9 @@ func (ph *PhpHandler) Close() {
 	}
 }
 
-// Make a request. Sends an http.Request to the PHP process, writes what it gets to an http.ResponseWriter.
+// ServeHTTP sends an http.Request to the PHP process, writes what it gets to an http.ResponseWriter.
 //
-// If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpHandler()).
+// If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpHandler).
 func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) (err error) {
 	ph.mutex.Lock()
 	defer ph.mutex.Unlock()
@@ -150,9 +150,8 @@ func (ph *PhpHandler) listenForErrors() {
 		if err != nil {
 			if err.Error() == "EOF" {
 				return
-			} else {
-				panic(err)
 			}
+			panic(err)
 		}
 
 		if line[25:37] != "] 127.0.0.1:" {
@@ -213,7 +212,7 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err e
 		if err != nil {
 			e <- err
 		} else {
-			e <- errors.New("Command exited early")
+			e <- errors.New("command exited early")
 		}
 	}()
 
