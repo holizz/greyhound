@@ -38,8 +38,7 @@ func TestNormalRequest(t *testing.T) {
 	r, err := http.NewRequest("GET", "/abc.php", nil)
 	assert.Nil(t, err)
 
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "abc")
@@ -54,8 +53,7 @@ func TestHeaders(t *testing.T) {
 	r, err := http.NewRequest("GET", "/headers.php", nil)
 	assert.Nil(t, err)
 
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 
 	assert.Equal(t, w.Code, 404)
 	assert.Equal(t, w.HeaderMap["X-Golang-Is"], []string{"Awesome"})
@@ -71,8 +69,7 @@ func TestRedirects(t *testing.T) {
 	r, err := http.NewRequest("GET", "/redirect.php", nil)
 	assert.Nil(t, err)
 
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 
 	assert.Equal(t, w.Code, 301)
 	assert.Equal(t, w.HeaderMap["Location"], []string{"/"})
@@ -88,8 +85,7 @@ func TestErrors(t *testing.T) {
 	r, err := http.NewRequest("GET", "/error.php", nil)
 	assert.Nil(t, err)
 
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 
 	assert.Equal(t, w.Code, 500)
 	assert.Contains(t, w.Body.String(), "Undefined variable: abc in")
@@ -106,16 +102,14 @@ func TestErrorReset(t *testing.T) {
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("GET", "/multiple-errors.php", nil)
 	assert.Nil(t, err)
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 	assert.Equal(t, w.Code, 500)
 
 	// Second request
 	w = httptest.NewRecorder()
 	r, err = http.NewRequest("GET", "/abc.php", nil)
 	assert.Nil(t, err)
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "abc")
 }
@@ -131,8 +125,7 @@ func TestLocking(t *testing.T) {
 	r, err := http.NewRequest("GET", "/wait-and-error.php", nil)
 	assert.Nil(t, err)
 	go func() {
-		err = ph.ServeHTTP(w, r)
-		assert.Nil(t, err)
+		ph.ServeHTTP(w, r)
 		assert.Equal(t, w.Code, 500)
 	}()
 
@@ -140,8 +133,7 @@ func TestLocking(t *testing.T) {
 	w = httptest.NewRecorder()
 	r, err = http.NewRequest("GET", "/abc.php", nil)
 	assert.Nil(t, err)
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 	assert.Equal(t, w.Code, 200)
 }
 
@@ -153,7 +145,6 @@ func TestTimeout(t *testing.T) {
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("GET", "/wait-too-long.php", nil)
 	assert.Nil(t, err)
-	err = ph.ServeHTTP(w, r)
-	assert.Nil(t, err)
+	ph.ServeHTTP(w, r)
 	assert.Equal(t, w.Code, 500)
 }

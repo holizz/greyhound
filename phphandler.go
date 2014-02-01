@@ -73,9 +73,11 @@ func (ph *PhpHandler) Close() {
 // ServeHTTP sends an http.Request to the PHP process, writes what it gets to an http.ResponseWriter.
 //
 // If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpHandler).
-func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) (err error) {
+func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ph.mutex.Lock()
 	defer ph.mutex.Unlock()
+
+	var err error
 
 	r.URL.Scheme = "http"
 	r.URL.Host = ph.host
@@ -101,6 +103,7 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) (err err
 	// End timeout stuff
 
 	if err != nil {
+		renderError(w, "uh oh")
 		return
 	}
 	defer resp.Body.Close()
