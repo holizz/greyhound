@@ -28,6 +28,14 @@ type PhpHandler struct {
 	timeout    int
 }
 
+type errorType int
+
+const (
+	phpError errorType = iota
+	timeoutError
+	requestError
+)
+
 // NewPhpHandler starts a new PHP server listening on the first free port (between port 8001 and 2^16).
 //
 // Usage:
@@ -97,13 +105,13 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	select {
 	case <-wait:
 	case <-time.After(time.Millisecond * time.Duration(ph.timeout)):
-		renderTimeout(w, ph.timeout)
+		renderError(w, timeoutError, fmt.Sprintf("Took too long to respond (%dms)", ph.timeout))
 		return
 	}
 	// End timeout stuff
 
 	if err != nil {
-		renderError(w, "uh oh")
+		renderError(w, requestError, "uh oh")
 		return
 	}
 	defer resp.Body.Close()
@@ -120,7 +128,7 @@ FOR:
 		case <-ph.requestLog:
 			break FOR
 		case line := <-ph.errorLog:
-			renderError(w, line)
+			renderError(w, phpError, line)
 			thereWereErrors = true
 		}
 	}
@@ -166,19 +174,14 @@ func (ph *PhpHandler) listenForErrors() {
 }
 
 // Render the error template
-func renderError(w http.ResponseWriter, s string) {
+func renderError(w http.ResponseWriter, t errorType, s string) {
 	w.WriteHeader(http.StatusInternalServerError)
 
-	tmpl := template.Must(template.New("").Parse(`<pre>{{.}}</pre>`))
+	tmpl := template.Must(template.New("").Parse(`<!doctype html>
+	<title>Error!</title>
+	<h1>Error!</h1>
+	<pre>{{.}}</pre>`))
 	tmpl.Execute(w, s)
-}
-
-// Render the timeout template
-func renderTimeout(w http.ResponseWriter, timeout int) {
-	w.WriteHeader(http.StatusInternalServerError)
-
-	tmpl := template.Must(template.New("").Parse(`<p>Waited for {{.}}ms and PHP didn't respond!</p>`))
-	tmpl.Execute(w, timeout)
 }
 
 // A low-level command
