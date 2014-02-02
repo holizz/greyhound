@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"os/exec"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -28,13 +30,33 @@ type PhpHandler struct {
 	timeout    int
 }
 
-type errorType int
+type phpError struct {
+	ErrorType string
+	Text string
+}
 
-const (
-	phpError errorType = iota
-	timeoutError
-	requestError
-)
+var tmpl = template.Must(template.New("").Parse(
+	`<!doctype html>
+	<title>Error</title>
+
+	{{if eq .ErrorType "interpreterError"}}
+
+		<h1>Error</h1>
+		<pre>{{.Text}}</pre>
+
+	{{else if eq .ErrorType "timeoutError"}}
+
+		<h1>Timeout error</h1>
+		<p>Waited {{.Text}}ms and received no response</p>
+
+	{{else}}
+
+		<h1>Request error</h1>
+		<p>{{.Text}}</p>
+
+	{{end}}
+	`,
+))
 
 // NewPhpHandler starts a new PHP server listening on the first free port (between port 8001 and 2^16).
 //
@@ -105,13 +127,13 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	select {
 	case <-wait:
 	case <-time.After(time.Millisecond * time.Duration(ph.timeout)):
-		renderError(w, timeoutError, fmt.Sprintf("Took too long to respond (%dms)", ph.timeout))
+		renderError(w, "timeoutError", strconv.Itoa(ph.timeout))
 		return
 	}
 	// End timeout stuff
 
 	if err != nil {
-		renderError(w, requestError, "uh oh")
+		renderError(w, "requestError", "uh oh")
 		return
 	}
 	defer resp.Body.Close()
@@ -128,7 +150,7 @@ FOR:
 		case <-ph.requestLog:
 			break FOR
 		case line := <-ph.errorLog:
-			renderError(w, phpError, line)
+			renderError(w, "interpreterError", line)
 			thereWereErrors = true
 		}
 	}
@@ -174,14 +196,18 @@ func (ph *PhpHandler) listenForErrors() {
 }
 
 // Render the error template
-func renderError(w http.ResponseWriter, t errorType, s string) {
+func renderError(w http.ResponseWriter, t string, s string) {
 	w.WriteHeader(http.StatusInternalServerError)
 
-	tmpl := template.Must(template.New("").Parse(`<!doctype html>
-	<title>Error!</title>
-	<h1>Error!</h1>
-	<pre>{{.}}</pre>`))
-	tmpl.Execute(w, s)
+	e := phpError{
+		ErrorType: t,
+		Text: s,
+	}
+
+	err := tmpl.Execute(w, e)
+	if err != nil {
+		log.Fatalln("Template failed to execute")
+	}
 }
 
 // A low-level command
