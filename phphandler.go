@@ -138,9 +138,6 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Check for errors
-	thereWereErrors := false
-
 	// The request gets printed to STDERR only after the errors
 	// So it's a reliable way to confirm that the page was returned
 
@@ -151,12 +148,8 @@ FOR:
 			break FOR
 		case line := <-ph.errorLog:
 			renderError(w, "interpreterError", line)
-			thereWereErrors = true
+			return
 		}
-	}
-
-	if thereWereErrors {
-		return
 	}
 
 	// Headers
