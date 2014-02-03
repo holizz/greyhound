@@ -148,6 +148,7 @@ FOR:
 			break FOR
 		case line := <-ph.errorLog:
 			renderError(w, "interpreterError", line)
+			ph.resetErrors()
 			return
 		}
 	}
@@ -188,6 +189,18 @@ func (ph *PhpHandler) listenForErrors() {
 	}
 }
 
+// Consumes all the errors until the request completes and then returns
+func (ph *PhpHandler) resetErrors() {
+	for {
+		select {
+		case <- ph.errorLog:
+			// consume the error
+		case <- ph.requestLog:
+			return
+		}
+	}
+}
+
 // Render the error template
 func renderError(w http.ResponseWriter, t string, s string) {
 	w.WriteHeader(http.StatusInternalServerError)
@@ -204,7 +217,7 @@ func renderError(w http.ResponseWriter, t string, s string) {
 }
 
 // A low-level command
-// Starts PHP running, waits one second, returns an error if PHP stopped during that time
+// Starts PHP running, waits half a second, returns an error if PHP stopped during that time
 func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err error) {
 	cmd = exec.Command(
 		"php",
