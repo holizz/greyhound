@@ -8,16 +8,6 @@ import (
 	"time"
 )
 
-func TestRunPhpReturnsErrors(t *testing.T) {
-	p1, _, _, _, err := runPhp("test-dir", "localhost:31524")
-	defer p1.Process.Kill()
-	assert.Nil(t, err)
-
-	p2, _, _, _, err := runPhp("test-dir", "localhost:31524")
-	defer p2.Process.Kill()
-	assert.NotNil(t, err)
-}
-
 func TestListenOnDifferentPorts(t *testing.T) {
 	ph1, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph1.Close()
@@ -151,7 +141,7 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestErrorIgnoring(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Millisecond * 100, []string{"/error.php on line 1"})
+	ph, err := NewPhpHandler("test-dir", time.Millisecond*100, []string{"/error.php on line 1"})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -166,7 +156,7 @@ func TestErrorIgnoring(t *testing.T) {
 }
 
 func TestFatalErrorIgnoring(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Millisecond * 100, []string{"/"})
+	ph, err := NewPhpHandler("test-dir", time.Millisecond*100, []string{"/"})
 	defer ph.Close()
 	assert.Nil(t, err)
 
