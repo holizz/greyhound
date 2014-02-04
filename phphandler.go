@@ -108,7 +108,7 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// End timeout stuff
 
 	if err != nil {
-		renderError(w, "requestError", "uh oh")
+		renderError(w, "requestError", "The request could not be performed for an unknown reason.")
 		return
 	}
 	defer resp.Body.Close()
@@ -120,7 +120,7 @@ FOR:
 	for {
 		select {
 		case <-ph.errorChan:
-			renderError(w, "earlyExit", "oh dear")
+			renderError(w, "earlyExitError", "The PHP command exited before it should have.")
 			return
 		case <-ph.requestLog:
 			break FOR

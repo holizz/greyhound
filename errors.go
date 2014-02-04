@@ -2,7 +2,6 @@ package greyhound
 
 import (
 	"html/template"
-	"log"
 	"net/http"
 )
 
@@ -11,28 +10,73 @@ type phpError struct {
 	Text      string
 }
 
-var tmpl = template.Must(template.New("").Parse(
-	`<!doctype html>
-	<title>Error</title>
+var tmpl = template.Must(template.New("").Parse(`
+{{define "interpreterError"}}
+	<h1>Error</h1>
+	<div class="error">
+		<p><code>{{.}}</code></p>
+	</div>
+{{end}}
 
-	{{if eq .ErrorType "interpreterError"}}
+{{define "timeoutError"}}
+	<h1>Timeout error</h1>
+	<div class="error">
+		<p>Waited {{.}} and received no response</p>
+	</div>
+{{end}}
 
-		<h1>Error</h1>
-		<pre>{{.Text}}</pre>
+{{define "otherError"}}
+	<h1>Other error</h1>
+	<div class="error">
+		<p>{{.}}</p>
+	</div>
+{{end}}
 
-	{{else if eq .ErrorType "timeoutError"}}
+<!doctype html>
+<html>
+	<head>
+		<title>Error</title>
+		<style>
+			html {
+				padding: 0;
+			}
+			body {
+				margin: 0;
+				color: black;
+				background: white;
+				font-family: sans-serif;
+			}
+			.container {
+				max-width: 700px;
+				background: #ddd;
+				margin: 0 auto;
+				padding: 20px;
+			}
+			h1 {
+				font-weight: normal;
+			}
+			.error {
+				overflow-x: auto;
+				background: #fdd;
+			}
+		</style>
+	</head>
+	<body>
 
-		<h1>Timeout error</h1>
-		<p>Waited {{.Text}} and received no response</p>
+		<div class="container">
 
-	{{else}}
+			{{if eq .ErrorType "interpreterError"}}
+				{{template "interpreterError" .Text}}
+			{{else if eq .ErrorType "timeoutError"}}
+				{{template "timeoutError" .Text}}
+			{{else}}
+				{{template "otherError" .Text}}
+			{{end}}
 
-		<h1>Request error</h1>
-		<p>{{.Text}}</p>
-
-	{{end}}
-	`,
-))
+		</div>
+	</body>
+</html>
+`))
 
 // Render the error template
 func renderError(w http.ResponseWriter, t string, s string) {
@@ -45,6 +89,6 @@ func renderError(w http.ResponseWriter, t string, s string) {
 
 	err := tmpl.Execute(w, e)
 	if err != nil {
-		log.Fatalln("Template failed to execute")
+		panic(err)
 	}
 }
