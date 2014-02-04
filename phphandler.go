@@ -200,7 +200,7 @@ func (ph *PhpHandler) listenForErrors() {
 		}
 
 		if line[25:37] != "] 127.0.0.1:" {
-			ph.errorLog <- line[40:]
+			ph.errorLog <- line[27:]
 		} else {
 			ph.requestLog <- line[38:]
 		}

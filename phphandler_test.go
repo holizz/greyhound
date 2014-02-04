@@ -89,7 +89,7 @@ func TestErrors(t *testing.T) {
 	ph.ServeHTTP(w, r)
 
 	assert.Equal(t, w.Code, 500)
-	assert.Contains(t, w.Body.String(), "Undefined variable: abc in")
+	assert.Contains(t, w.Body.String(), "PHP Notice:  Undefined variable: abc in")
 	assert.Contains(t, w.Body.String(), "/error.php on line 1")
 }
 
