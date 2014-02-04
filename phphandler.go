@@ -27,7 +27,6 @@ type PhpHandler struct {
 	stderr     chan string
 	errorLog   chan string
 	requestLog chan string
-	errorChan  chan error
 	mutex      *sync.Mutex
 	timeout    time.Duration
 	ignore     []string
@@ -79,7 +78,7 @@ func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpH
 			// otherwise PHP only listens on ::1
 			host: fmt.Sprintf("127.0.0.1:%d", p),
 		}
-		cmd, stdout, stderr, errorChan, err := runPhp(ph.dir, ph.host)
+		cmd, stdout, stderr, err := runPhp(ph.dir, ph.host)
 
 		if err == nil {
 			ph.timeout = timeout
@@ -88,7 +87,6 @@ func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpH
 			ph.stderr = stderr
 			ph.errorLog = make(chan string)
 			ph.requestLog = make(chan string)
-			ph.errorChan = errorChan
 			ph.mutex = &sync.Mutex{}
 			ph.ignore = ignore
 			go ph.listenForErrors()
@@ -150,9 +148,6 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 FOR:
 	for {
 		select {
-		case <-ph.errorChan:
-			renderError(w, "earlyExit", "oh dear")
-			return
 		case <-ph.requestLog:
 			break FOR
 		case line := <-ph.errorLog:
@@ -234,7 +229,7 @@ func renderError(w http.ResponseWriter, t string, s string) {
 
 // A low-level command
 // Starts PHP running, waits half a second, returns an error if PHP stopped during that time
-func runPhp(dir string, host string) (cmd *exec.Cmd, stdout chan string, stderr chan string, errorChan chan error, err error) {
+func runPhp(dir string, host string) (cmd *exec.Cmd, stdout chan string, stderr chan string, err error) {
 	cmd = exec.Command(
 		"php",
 		"-n", // do not read php.ini
@@ -246,8 +241,8 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stdout chan string, stderr 
 	)
 
 	// Connect stdout
-	_stdout, out := cmd.StdoutPipe()
-	if out != nil {
+	_stdout, err := cmd.StdoutPipe()
+	if err != nil {
 		return
 	}
 	stdout = chanify(&_stdout)
@@ -259,29 +254,31 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stdout chan string, stderr 
 	}
 	stderr = chanify(&_stderr)
 
+	// Report when PHP is listening
+	listening := make(chan bool)
+	go func() {
+		for {
+			line := <-stdout
+			fmt.Println(line)
+			if strings.HasPrefix(line, "Listening on http://") {
+				listening <- true
+				return
+			}
+		}
+	}()
+
 	// Let's go
 	err = cmd.Start()
 	if err != nil {
 		return
 	}
 
-	// Wait 1 second for the command to terminate
-	// If it exits early, that's bad whatever the exit status
-	errorChan = make(chan error)
-
-	go func() {
-		err := cmd.Wait()
-		if err != nil {
-			errorChan <- err
-		} else {
-			errorChan <- errors.New("command exited early")
-		}
-	}()
-
+	// Wait until the command reports it's listening, or timeout
 	select {
 	case <-time.After(time.Millisecond * 500):
+		err = errors.New("Command failed to start listening")
 		return
-	case err = <-errorChan:
+	case <-listening:
 		return
 	}
 }
