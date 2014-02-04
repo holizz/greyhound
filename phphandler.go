@@ -23,7 +23,7 @@ type PhpHandler struct {
 	port       int
 	host       string
 	cmd        *exec.Cmd
-	stderr     *bufio.Reader
+	stderr     *bufio.Scanner
 	errorLog   chan string
 	requestLog chan string
 	errorChan  chan error
@@ -83,7 +83,7 @@ func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpH
 		if err == nil {
 			ph.timeout = timeout
 			ph.cmd = cmd
-			ph.stderr = bufio.NewReader(stderr)
+			ph.stderr = bufio.NewScanner(stderr)
 			ph.errorLog = make(chan string)
 			ph.requestLog = make(chan string)
 			ph.errorChan = errorChan
@@ -193,20 +193,18 @@ FOR:
 
 // Converts bufio.Reader into chan for ease of use during the request
 func (ph *PhpHandler) listenForErrors() {
-	for {
-		line, err := ph.stderr.ReadString('\n')
-		if err != nil {
-			if err.Error() == "EOF" {
-				return
-			}
-			panic(err)
-		}
+	for ph.stderr.Scan() {
+		line := ph.stderr.Text()
 
 		if line[25:37] != "] 127.0.0.1:" {
 			ph.errorLog <- line[27:]
 		} else {
 			ph.requestLog <- line[38:]
 		}
+	}
+	err := ph.stderr.Err()
+	if err != nil {
+		panic(err)
 	}
 }
 
