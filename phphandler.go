@@ -155,11 +155,14 @@ FOR:
 			break FOR
 		case line := <-ph.errorLog:
 			ignoreError := false
-		IGNORE:
-			for _, i := range ph.ignore {
-				if strings.Contains(line, i) {
-					ignoreError = true
-					break IGNORE
+
+			if !strings.Contains(line, "PHP Fatal error:  ") {
+			IGNORE:
+				for _, i := range ph.ignore {
+					if strings.Contains(line, i) {
+						ignoreError = true
+						break IGNORE
+					}
 				}
 			}
 

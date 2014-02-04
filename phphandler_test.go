@@ -164,3 +164,18 @@ func TestErrorIgnoring(t *testing.T) {
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "123 ")
 }
+
+func TestFatalErrorIgnoring(t *testing.T) {
+	ph, err := NewPhpHandler("test-dir", time.Millisecond * 100, []string{"/"})
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/fatal-error.php", nil)
+	assert.Nil(t, err)
+
+	ph.ServeHTTP(w, r)
+
+	assert.Equal(t, w.Code, 500)
+	assert.Contains(t, w.Body.String(), "PHP Fatal error:  Call to undefined function flub() in")
+}
