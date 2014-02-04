@@ -10,7 +10,6 @@ import (
 	"math"
 	"net/http"
 	"os/exec"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -28,7 +27,7 @@ type PhpHandler struct {
 	requestLog chan string
 	errorChan  chan error
 	mutex      *sync.Mutex
-	timeout    int
+	timeout    time.Duration
 }
 
 type phpError struct {
@@ -48,7 +47,7 @@ var tmpl = template.Must(template.New("").Parse(
 	{{else if eq .ErrorType "timeoutError"}}
 
 		<h1>Timeout error</h1>
-		<p>Waited {{.Text}}ms and received no response</p>
+		<p>Waited {{.Text}} and received no response</p>
 
 	{{else}}
 
@@ -69,7 +68,7 @@ var tmpl = template.Must(template.New("").Parse(
 // 	defer ph.Close()
 //
 // timeout is in milliseconds
-func NewPhpHandler(dir string, timeout int) (ph *PhpHandler, err error) {
+func NewPhpHandler(dir string, timeout time.Duration) (ph *PhpHandler, err error) {
 	for p := 8001; p < int(math.Pow(2, 16)); p++ {
 		ph = &PhpHandler{
 			dir: dir,
@@ -128,8 +127,8 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case <-wait:
-	case <-time.After(time.Millisecond * time.Duration(ph.timeout)):
-		renderError(w, "timeoutError", strconv.Itoa(ph.timeout))
+	case <-time.After(ph.timeout):
+		renderError(w, "timeoutError", ph.timeout.String())
 		return
 	}
 	// End timeout stuff

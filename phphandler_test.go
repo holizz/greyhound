@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestRunPhpReturnsErrors(t *testing.T) {
@@ -18,11 +19,11 @@ func TestRunPhpReturnsErrors(t *testing.T) {
 }
 
 func TestListenOnDifferentPorts(t *testing.T) {
-	ph1, err := NewPhpHandler("test-dir", 1000)
+	ph1, err := NewPhpHandler("test-dir", time.Second)
 	defer ph1.Close()
 	assert.Nil(t, err)
 
-	ph2, err := NewPhpHandler("test-dir", 1000)
+	ph2, err := NewPhpHandler("test-dir", time.Second)
 	defer ph2.Close()
 	assert.Nil(t, err)
 
@@ -30,7 +31,7 @@ func TestListenOnDifferentPorts(t *testing.T) {
 }
 
 func TestNormalRequest(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
+	ph, err := NewPhpHandler("test-dir", time.Second)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -45,7 +46,7 @@ func TestNormalRequest(t *testing.T) {
 }
 
 func TestHeaders(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
+	ph, err := NewPhpHandler("test-dir", time.Second)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -61,7 +62,7 @@ func TestHeaders(t *testing.T) {
 }
 
 func TestRedirects(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
+	ph, err := NewPhpHandler("test-dir", time.Second)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -77,7 +78,7 @@ func TestRedirects(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
+	ph, err := NewPhpHandler("test-dir", time.Second)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -93,7 +94,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestErrorReset(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
+	ph, err := NewPhpHandler("test-dir", time.Second)
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -115,7 +116,7 @@ func TestErrorReset(t *testing.T) {
 }
 
 func TestLocking(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
+	ph, err := NewPhpHandler("test-dir", time.Second)
 	defer ph.Close()
 	assert.Nil(t, err)
 
