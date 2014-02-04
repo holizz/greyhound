@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,17 +24,17 @@ type PhpHandler struct {
 	port       int
 	host       string
 	cmd        *exec.Cmd
-	stderr     *bufio.Reader
+	stdout     chan string
+	stderr     chan string
 	errorLog   chan string
 	requestLog chan string
-	errorChan  chan error
 	mutex      *sync.Mutex
 	timeout    int
 }
 
 type phpError struct {
 	ErrorType string
-	Text string
+	Text      string
 }
 
 var tmpl = template.Must(template.New("").Parse(
@@ -77,15 +78,15 @@ func NewPhpHandler(dir string, timeout int) (ph *PhpHandler, err error) {
 			// otherwise PHP only listens on ::1
 			host: fmt.Sprintf("127.0.0.1:%d", p),
 		}
-		cmd, stderr, errorChan, err := runPhp(ph.dir, ph.host)
+		cmd, stdout, stderr, err := runPhp(ph.dir, ph.host)
 
 		if err == nil {
 			ph.timeout = timeout
 			ph.cmd = cmd
-			ph.stderr = bufio.NewReader(stderr)
+			ph.stdout = stdout
+			ph.stderr = stderr
 			ph.errorLog = make(chan string)
 			ph.requestLog = make(chan string)
-			ph.errorChan = errorChan
 			ph.mutex = &sync.Mutex{}
 			go ph.listenForErrors()
 			return ph, nil
@@ -146,9 +147,6 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 FOR:
 	for {
 		select {
-		case <-ph.errorChan:
-			renderError(w, "earlyExit", "oh dear")
-			return
 		case <-ph.requestLog:
 			break FOR
 		case line := <-ph.errorLog:
@@ -175,16 +173,10 @@ FOR:
 	return
 }
 
-// Converts bufio.Reader into chan for ease of use during the request
+// Converts stderr into two different chans for errors and request logs
 func (ph *PhpHandler) listenForErrors() {
 	for {
-		line, err := ph.stderr.ReadString('\n')
-		if err != nil {
-			if err.Error() == "EOF" {
-				return
-			}
-			panic(err)
-		}
+		line := <-ph.stderr
 
 		if line[25:37] != "] 127.0.0.1:" {
 			ph.errorLog <- line[40:]
@@ -198,9 +190,9 @@ func (ph *PhpHandler) listenForErrors() {
 func (ph *PhpHandler) resetErrors() {
 	for {
 		select {
-		case <- ph.errorLog:
+		case <-ph.errorLog:
 			// consume the error
-		case <- ph.requestLog:
+		case <-ph.requestLog:
 			return
 		}
 	}
@@ -212,7 +204,7 @@ func renderError(w http.ResponseWriter, t string, s string) {
 
 	e := phpError{
 		ErrorType: t,
-		Text: s,
+		Text:      s,
 	}
 
 	err := tmpl.Execute(w, e)
@@ -221,10 +213,10 @@ func renderError(w http.ResponseWriter, t string, s string) {
 	}
 }
 
-// A low-level command
-// Starts PHP running, waits half a second, returns an error if PHP stopped during that time
-func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, errorChan chan error, err error) {
-	cmd = exec.Command(
+// Starts PHP running
+func runPhp(dir string, host string) (cmd *exec.Cmd, stdout, stderr chan string, err error) {
+	fmt.Printf("runPhp: %s\n", host)
+	cmd, stdout, stderr = makeCmd([]string{
 		"php",
 		"-n", // do not read php.ini
 		"-S", host,
@@ -232,37 +224,82 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, error
 		"-d", "display_errors=Off",
 		"-d", "log_errors=On",
 		"-d", "error_reporting=E_ALL",
-	)
+	})
 
-	// Connect stderr
-	stderr, err = cmd.StderrPipe()
+	fmt.Println("runPhp: starting...")
+	err = cmd.Start()
 	if err != nil {
-		return
+		panic(err)
 	}
+	fmt.Println(<-stdout)
+	fmt.Println("runPhp: done")
 
-	// Let's go
+	timeout := time.After(time.Millisecond * 1000)
+	started := make(chan bool)
+
+	go func() {
+		for {
+			line := <-stdout
+			fmt.Printf("runPhp: line: %s\n", line)
+			if strings.HasPrefix(line, "Listening on http://") {
+				fmt.Println("runPhp: no err")
+				started <- true
+				return
+			}
+		}
+	}()
+
 	err = cmd.Start()
 	if err != nil {
 		return
 	}
 
-	// Wait 1 second for the command to terminate
-	// If it exits early, that's bad whatever the exit status
-	errorChan = make(chan error)
+	// fmt.Println("Waiting for stdout")
+	// line := <-stdout
+	// fmt.Println(line)
+
+	select {
+	case <-timeout:
+		fmt.Println("runPhp: killing")
+		cmd.Process.Kill()
+		err = errors.New("command didn't start")
+		return
+	case <-started:
+		return
+	}
+}
+
+func makeCmd(args []string) (cmd *exec.Cmd, stdout, stderr chan string) {
+	cmd = exec.Command(args[0], args[1:]...)
+
+	_stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		panic(err)
+	}
+	stdout = chanify(&_stdout)
+
+	_stderr, err := cmd.StderrPipe()
+	if err != nil {
+		panic(err)
+	}
+	stderr = chanify(&_stderr)
+
+	return
+}
+
+func chanify(pipe *io.ReadCloser) (ch chan string) {
+	ch = make(chan string)
+	scanner := bufio.NewScanner(*pipe)
 
 	go func() {
-		err := cmd.Wait()
+		for scanner.Scan() {
+			ch <- scanner.Text()
+		}
+		err := scanner.Err()
 		if err != nil {
-			errorChan <- err
-		} else {
-			errorChan <- errors.New("command exited early")
+			panic(err)
 		}
 	}()
 
-	select {
-	case <-time.After(time.Millisecond * 500):
-		return
-	case err = <-errorChan:
-		return
-	}
+	return
 }

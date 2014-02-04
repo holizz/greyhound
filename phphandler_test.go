@@ -2,10 +2,32 @@ package greyhound
 
 import (
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
+	// "net/http"
+	// "net/http/httptest"
 	"testing"
+	"time"
 )
+
+func TestRunCmd(t *testing.T) {
+	c, stdout, _ := makeCmd([]string{"sh", "-c", "echo 123 && sleep 1 && echo abc"})
+
+	err := c.Start()
+	assert.Nil(t, err)
+
+	select {
+	case line := <-stdout:
+		assert.Equal(t, line, "123")
+	case <-time.After(time.Millisecond * 500):
+		assert.Fail(t, "expected chan communication (1)")
+	}
+
+	select {
+	case line := <-stdout:
+		assert.Equal(t, line, "abc")
+	case <-time.After(time.Millisecond * 1500):
+		assert.Fail(t, "expected chan communication (2)")
+	}
+}
 
 func TestRunPhpReturnsErrors(t *testing.T) {
 	p1, _, _, err := runPhp("test-dir", "localhost:31524")
@@ -17,134 +39,134 @@ func TestRunPhpReturnsErrors(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestListenOnDifferentPorts(t *testing.T) {
-	ph1, err := NewPhpHandler("test-dir", 1000)
-	defer ph1.Close()
-	assert.Nil(t, err)
+// func TestListenOnDifferentPorts(t *testing.T) {
+// 	ph1, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph1.Close()
+// 	assert.Nil(t, err)
 
-	ph2, err := NewPhpHandler("test-dir", 1000)
-	defer ph2.Close()
-	assert.Nil(t, err)
+// 	ph2, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph2.Close()
+// 	assert.Nil(t, err)
 
-	assert.NotEqual(t, ph1.host, ph2.host)
-}
+// 	assert.NotEqual(t, ph1.host, ph2.host)
+// }
 
-func TestNormalRequest(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
-	defer ph.Close()
-	assert.Nil(t, err)
+// func TestNormalRequest(t *testing.T) {
+// 	ph, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph.Close()
+// 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/abc.php", nil)
-	assert.Nil(t, err)
+// 	w := httptest.NewRecorder()
+// 	r, err := http.NewRequest("GET", "/abc.php", nil)
+// 	assert.Nil(t, err)
 
-	ph.ServeHTTP(w, r)
+// 	ph.ServeHTTP(w, r)
 
-	assert.Equal(t, w.Code, 200)
-	assert.Equal(t, w.Body.String(), "abc")
-}
+// 	assert.Equal(t, w.Code, 200)
+// 	assert.Equal(t, w.Body.String(), "abc")
+// }
 
-func TestHeaders(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
-	defer ph.Close()
-	assert.Nil(t, err)
+// func TestHeaders(t *testing.T) {
+// 	ph, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph.Close()
+// 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/headers.php", nil)
-	assert.Nil(t, err)
+// 	w := httptest.NewRecorder()
+// 	r, err := http.NewRequest("GET", "/headers.php", nil)
+// 	assert.Nil(t, err)
 
-	ph.ServeHTTP(w, r)
+// 	ph.ServeHTTP(w, r)
 
-	assert.Equal(t, w.Code, 404)
-	assert.Equal(t, w.HeaderMap["X-Golang-Is"], []string{"Awesome"})
-	assert.Equal(t, w.Body.String(), "Hello from PHP\n")
-}
+// 	assert.Equal(t, w.Code, 404)
+// 	assert.Equal(t, w.HeaderMap["X-Golang-Is"], []string{"Awesome"})
+// 	assert.Equal(t, w.Body.String(), "Hello from PHP\n")
+// }
 
-func TestRedirects(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
-	defer ph.Close()
-	assert.Nil(t, err)
+// func TestRedirects(t *testing.T) {
+// 	ph, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph.Close()
+// 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/redirect.php", nil)
-	assert.Nil(t, err)
+// 	w := httptest.NewRecorder()
+// 	r, err := http.NewRequest("GET", "/redirect.php", nil)
+// 	assert.Nil(t, err)
 
-	ph.ServeHTTP(w, r)
+// 	ph.ServeHTTP(w, r)
 
-	assert.Equal(t, w.Code, 301)
-	assert.Equal(t, w.HeaderMap["Location"], []string{"/"})
-	assert.Equal(t, w.Body.String(), "")
-}
+// 	assert.Equal(t, w.Code, 301)
+// 	assert.Equal(t, w.HeaderMap["Location"], []string{"/"})
+// 	assert.Equal(t, w.Body.String(), "")
+// }
 
-func TestErrors(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
-	defer ph.Close()
-	assert.Nil(t, err)
+// func TestErrors(t *testing.T) {
+// 	ph, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph.Close()
+// 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/error.php", nil)
-	assert.Nil(t, err)
+// 	w := httptest.NewRecorder()
+// 	r, err := http.NewRequest("GET", "/error.php", nil)
+// 	assert.Nil(t, err)
 
-	ph.ServeHTTP(w, r)
+// 	ph.ServeHTTP(w, r)
 
-	assert.Equal(t, w.Code, 500)
-	assert.Contains(t, w.Body.String(), "Undefined variable: abc in")
-	assert.Contains(t, w.Body.String(), "/error.php on line 1")
-}
+// 	assert.Equal(t, w.Code, 500)
+// 	assert.Contains(t, w.Body.String(), "Undefined variable: abc in")
+// 	assert.Contains(t, w.Body.String(), "/error.php on line 1")
+// }
 
-func TestErrorReset(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
-	defer ph.Close()
-	assert.Nil(t, err)
+// func TestErrorReset(t *testing.T) {
+// 	ph, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph.Close()
+// 	assert.Nil(t, err)
 
-	// First request
+// 	// First request
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/multiple-errors.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
-	assert.Equal(t, w.Code, 500)
+// 	w := httptest.NewRecorder()
+// 	r, err := http.NewRequest("GET", "/multiple-errors.php", nil)
+// 	assert.Nil(t, err)
+// 	ph.ServeHTTP(w, r)
+// 	assert.Equal(t, w.Code, 500)
 
-	// Second request
-	w = httptest.NewRecorder()
-	r, err = http.NewRequest("GET", "/abc.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
-	assert.Equal(t, w.Code, 200)
-	assert.Equal(t, w.Body.String(), "abc")
-}
+// 	// Second request
+// 	w = httptest.NewRecorder()
+// 	r, err = http.NewRequest("GET", "/abc.php", nil)
+// 	assert.Nil(t, err)
+// 	ph.ServeHTTP(w, r)
+// 	assert.Equal(t, w.Code, 200)
+// 	assert.Equal(t, w.Body.String(), "abc")
+// }
 
-func TestLocking(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 1000)
-	defer ph.Close()
-	assert.Nil(t, err)
+// func TestLocking(t *testing.T) {
+// 	ph, err := NewPhpHandler("test-dir", 1000)
+// 	defer ph.Close()
+// 	assert.Nil(t, err)
 
-	// First request
+// 	// First request
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/wait-and-error.php", nil)
-	assert.Nil(t, err)
-	go func() {
-		ph.ServeHTTP(w, r)
-		assert.Equal(t, w.Code, 500)
-	}()
+// 	w := httptest.NewRecorder()
+// 	r, err := http.NewRequest("GET", "/wait-and-error.php", nil)
+// 	assert.Nil(t, err)
+// 	go func() {
+// 		ph.ServeHTTP(w, r)
+// 		assert.Equal(t, w.Code, 500)
+// 	}()
 
-	// Second request
-	w = httptest.NewRecorder()
-	r, err = http.NewRequest("GET", "/abc.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
-	assert.Equal(t, w.Code, 200)
-}
+// 	// Second request
+// 	w = httptest.NewRecorder()
+// 	r, err = http.NewRequest("GET", "/abc.php", nil)
+// 	assert.Nil(t, err)
+// 	ph.ServeHTTP(w, r)
+// 	assert.Equal(t, w.Code, 200)
+// }
 
-func TestTimeout(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 100)
-	defer ph.Close()
-	assert.Nil(t, err)
+// func TestTimeout(t *testing.T) {
+// 	ph, err := NewPhpHandler("test-dir", 100)
+// 	defer ph.Close()
+// 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/wait-too-long.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
-	assert.Equal(t, w.Code, 500)
-}
+// 	w := httptest.NewRecorder()
+// 	r, err := http.NewRequest("GET", "/wait-too-long.php", nil)
+// 	assert.Nil(t, err)
+// 	ph.ServeHTTP(w, r)
+// 	assert.Equal(t, w.Code, 500)
+// }
