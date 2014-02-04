@@ -23,6 +23,7 @@ type PhpHandler struct {
 	port       int
 	host       string
 	cmd        *exec.Cmd
+	stdout     chan string
 	stderr     chan string
 	errorLog   chan string
 	requestLog chan string
@@ -78,11 +79,12 @@ func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpH
 			// otherwise PHP only listens on ::1
 			host: fmt.Sprintf("127.0.0.1:%d", p),
 		}
-		cmd, stderr, errorChan, err := runPhp(ph.dir, ph.host)
+		cmd, stdout, stderr, errorChan, err := runPhp(ph.dir, ph.host)
 
 		if err == nil {
 			ph.timeout = timeout
 			ph.cmd = cmd
+			ph.stdout = stdout
 			ph.stderr = stderr
 			ph.errorLog = make(chan string)
 			ph.requestLog = make(chan string)
@@ -232,7 +234,7 @@ func renderError(w http.ResponseWriter, t string, s string) {
 
 // A low-level command
 // Starts PHP running, waits half a second, returns an error if PHP stopped during that time
-func runPhp(dir string, host string) (cmd *exec.Cmd, stderr chan string, errorChan chan error, err error) {
+func runPhp(dir string, host string) (cmd *exec.Cmd, stdout chan string, stderr chan string, errorChan chan error, err error) {
 	cmd = exec.Command(
 		"php",
 		"-n", // do not read php.ini
@@ -243,12 +245,18 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr chan string, errorCh
 		"-d", "error_reporting=E_ALL",
 	)
 
+	// Connect stdout
+	_stdout, out := cmd.StdoutPipe()
+	if out != nil {
+		return
+	}
+	stdout = chanify(&_stdout)
+
 	// Connect stderr
 	_stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return
 	}
-
 	stderr = chanify(&_stderr)
 
 	// Let's go
