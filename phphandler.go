@@ -26,6 +26,7 @@ type PhpHandler struct {
 	stderr     *bufio.Reader
 	errorLog   chan string
 	requestLog chan string
+	errorChan  chan error
 	mutex      *sync.Mutex
 	timeout    int
 }
@@ -76,7 +77,7 @@ func NewPhpHandler(dir string, timeout int) (ph *PhpHandler, err error) {
 			// otherwise PHP only listens on ::1
 			host: fmt.Sprintf("127.0.0.1:%d", p),
 		}
-		cmd, stderr, err := runPhp(ph.dir, ph.host)
+		cmd, stderr, errorChan, err := runPhp(ph.dir, ph.host)
 
 		if err == nil {
 			ph.timeout = timeout
@@ -84,6 +85,7 @@ func NewPhpHandler(dir string, timeout int) (ph *PhpHandler, err error) {
 			ph.stderr = bufio.NewReader(stderr)
 			ph.errorLog = make(chan string)
 			ph.requestLog = make(chan string)
+			ph.errorChan = errorChan
 			ph.mutex = &sync.Mutex{}
 			go ph.listenForErrors()
 			return ph, nil
@@ -144,6 +146,9 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 FOR:
 	for {
 		select {
+		case <-ph.errorChan:
+			renderError(w, "earlyExit", "oh dear")
+			return
 		case <-ph.requestLog:
 			break FOR
 		case line := <-ph.errorLog:
@@ -218,7 +223,7 @@ func renderError(w http.ResponseWriter, t string, s string) {
 
 // A low-level command
 // Starts PHP running, waits half a second, returns an error if PHP stopped during that time
-func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err error) {
+func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, errorChan chan error, err error) {
 	cmd = exec.Command(
 		"php",
 		"-n", // do not read php.ini
@@ -243,21 +248,21 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, err e
 
 	// Wait 1 second for the command to terminate
 	// If it exits early, that's bad whatever the exit status
-	e := make(chan error)
+	errorChan = make(chan error)
 
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			e <- err
+			errorChan <- err
 		} else {
-			e <- errors.New("command exited early")
+			errorChan <- errors.New("command exited early")
 		}
 	}()
 
 	select {
 	case <-time.After(time.Millisecond * 500):
 		return
-	case err = <-e:
+	case err = <-errorChan:
 		return
 	}
 }
