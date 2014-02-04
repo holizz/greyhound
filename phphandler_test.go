@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+func get(t *testing.T, h http.Handler, uri string) (w *httptest.ResponseRecorder) {
+	w = httptest.NewRecorder()
+	r, err := http.NewRequest("GET", uri, nil)
+	assert.Nil(t, err)
+
+	h.ServeHTTP(w, r)
+
+	return
+}
+
 func TestListenOnDifferentPorts(t *testing.T) {
 	ph1, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph1.Close()
@@ -25,11 +35,7 @@ func TestNormalRequest(t *testing.T) {
 	defer ph.Close()
 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/abc.php", nil)
-	assert.Nil(t, err)
-
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/abc.php")
 
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "abc")
@@ -40,11 +46,7 @@ func TestHeaders(t *testing.T) {
 	defer ph.Close()
 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/headers.php", nil)
-	assert.Nil(t, err)
-
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/headers.php")
 
 	assert.Equal(t, w.Code, 404)
 	assert.Equal(t, w.HeaderMap["X-Golang-Is"], []string{"Awesome"})
@@ -56,11 +58,7 @@ func TestRedirects(t *testing.T) {
 	defer ph.Close()
 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/redirect.php", nil)
-	assert.Nil(t, err)
-
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/redirect.php")
 
 	assert.Equal(t, w.Code, 301)
 	assert.Equal(t, w.HeaderMap["Location"], []string{"/"})
@@ -72,11 +70,7 @@ func TestErrors(t *testing.T) {
 	defer ph.Close()
 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/error.php", nil)
-	assert.Nil(t, err)
-
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/error.php")
 
 	assert.Equal(t, w.Code, 500)
 	assert.Contains(t, w.Body.String(), "PHP Notice:  Undefined variable: abc in")
@@ -89,18 +83,11 @@ func TestErrorReset(t *testing.T) {
 	assert.Nil(t, err)
 
 	// First request
-
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/multiple-errors.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/multiple-errors.php")
 	assert.Equal(t, w.Code, 500)
 
 	// Second request
-	w = httptest.NewRecorder()
-	r, err = http.NewRequest("GET", "/abc.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
+	w = get(t, ph, "/abc.php")
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "abc")
 }
@@ -111,7 +98,6 @@ func TestLocking(t *testing.T) {
 	assert.Nil(t, err)
 
 	// First request
-
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("GET", "/wait-and-error.php", nil)
 	assert.Nil(t, err)
@@ -121,10 +107,7 @@ func TestLocking(t *testing.T) {
 	}()
 
 	// Second request
-	w = httptest.NewRecorder()
-	r, err = http.NewRequest("GET", "/abc.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
+	w = get(t, ph, "/abc.php")
 	assert.Equal(t, w.Code, 200)
 }
 
@@ -133,10 +116,7 @@ func TestTimeout(t *testing.T) {
 	defer ph.Close()
 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/wait-too-long.php", nil)
-	assert.Nil(t, err)
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/wait-too-long.php")
 	assert.Equal(t, w.Code, 500)
 }
 
@@ -145,11 +125,7 @@ func TestErrorIgnoring(t *testing.T) {
 	defer ph.Close()
 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/error.php", nil)
-	assert.Nil(t, err)
-
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/error.php")
 
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "123 ")
@@ -160,11 +136,7 @@ func TestFatalErrorIgnoring(t *testing.T) {
 	defer ph.Close()
 	assert.Nil(t, err)
 
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/fatal-error.php", nil)
-	assert.Nil(t, err)
-
-	ph.ServeHTTP(w, r)
+	w := get(t, ph, "/fatal-error.php")
 
 	assert.Equal(t, w.Code, 500)
 	assert.Contains(t, w.Body.String(), "PHP Fatal error:  Call to undefined function flub() in")
