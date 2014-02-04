@@ -23,7 +23,7 @@ type PhpHandler struct {
 	port       int
 	host       string
 	cmd        *exec.Cmd
-	stderr     *bufio.Scanner
+	stderr     chan string
 	errorLog   chan string
 	requestLog chan string
 	errorChan  chan error
@@ -83,7 +83,7 @@ func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpH
 		if err == nil {
 			ph.timeout = timeout
 			ph.cmd = cmd
-			ph.stderr = bufio.NewScanner(stderr)
+			ph.stderr = stderr
 			ph.errorLog = make(chan string)
 			ph.requestLog = make(chan string)
 			ph.errorChan = errorChan
@@ -193,18 +193,13 @@ FOR:
 
 // Converts bufio.Reader into chan for ease of use during the request
 func (ph *PhpHandler) listenForErrors() {
-	for ph.stderr.Scan() {
-		line := ph.stderr.Text()
-
+	for {
+		line := <-ph.stderr
 		if line[25:37] != "] 127.0.0.1:" {
 			ph.errorLog <- line[27:]
 		} else {
 			ph.requestLog <- line[38:]
 		}
-	}
-	err := ph.stderr.Err()
-	if err != nil {
-		panic(err)
 	}
 }
 
@@ -237,7 +232,7 @@ func renderError(w http.ResponseWriter, t string, s string) {
 
 // A low-level command
 // Starts PHP running, waits half a second, returns an error if PHP stopped during that time
-func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, errorChan chan error, err error) {
+func runPhp(dir string, host string) (cmd *exec.Cmd, stderr chan string, errorChan chan error, err error) {
 	cmd = exec.Command(
 		"php",
 		"-n", // do not read php.ini
@@ -249,10 +244,12 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, error
 	)
 
 	// Connect stderr
-	stderr, err = cmd.StderrPipe()
+	_stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return
 	}
+
+	stderr = chanify(&_stderr)
 
 	// Let's go
 	err = cmd.Start()
@@ -279,4 +276,21 @@ func runPhp(dir string, host string) (cmd *exec.Cmd, stderr io.ReadCloser, error
 	case err = <-errorChan:
 		return
 	}
+}
+
+func chanify(pipe *io.ReadCloser) (ch chan string) {
+	ch = make(chan string)
+	scanner := bufio.NewScanner(*pipe)
+
+	go func() {
+		for scanner.Scan() {
+			ch <- scanner.Text()
+		}
+		err := scanner.Err()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	return
 }
