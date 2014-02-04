@@ -15,7 +15,7 @@ func main() {
 	timeout := flag.Duration("t", time.Second * 5, "timeout in milliseconds")
 	flag.Parse()
 
-	phpHandler, err := greyhound.NewPhpHandler(*dir, *timeout)
+	phpHandler, err := greyhound.NewPhpHandler(*dir, *timeout, []string{})
 	if err != nil {
 		log.Fatalln(err)
 	}

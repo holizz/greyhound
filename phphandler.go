@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,11 +29,12 @@ type PhpHandler struct {
 	errorChan  chan error
 	mutex      *sync.Mutex
 	timeout    time.Duration
+	ignore     []string
 }
 
 type phpError struct {
 	ErrorType string
-	Text string
+	Text      string
 }
 
 var tmpl = template.Must(template.New("").Parse(
@@ -68,7 +70,7 @@ var tmpl = template.Must(template.New("").Parse(
 // 	defer ph.Close()
 //
 // timeout is in milliseconds
-func NewPhpHandler(dir string, timeout time.Duration) (ph *PhpHandler, err error) {
+func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpHandler, err error) {
 	for p := 8001; p < int(math.Pow(2, 16)); p++ {
 		ph = &PhpHandler{
 			dir: dir,
@@ -86,6 +88,7 @@ func NewPhpHandler(dir string, timeout time.Duration) (ph *PhpHandler, err error
 			ph.requestLog = make(chan string)
 			ph.errorChan = errorChan
 			ph.mutex = &sync.Mutex{}
+			ph.ignore = ignore
 			go ph.listenForErrors()
 			return ph, nil
 		}
@@ -151,9 +154,20 @@ FOR:
 		case <-ph.requestLog:
 			break FOR
 		case line := <-ph.errorLog:
-			renderError(w, "interpreterError", line)
-			ph.resetErrors()
-			return
+			ignoreError := false
+		IGNORE:
+			for _, i := range ph.ignore {
+				if strings.Contains(line, i) {
+					ignoreError = true
+					break IGNORE
+				}
+			}
+
+			if !ignoreError {
+				renderError(w, "interpreterError", line)
+				ph.resetErrors()
+				return
+			}
 		}
 	}
 
@@ -197,9 +211,9 @@ func (ph *PhpHandler) listenForErrors() {
 func (ph *PhpHandler) resetErrors() {
 	for {
 		select {
-		case <- ph.errorLog:
+		case <-ph.errorLog:
 			// consume the error
-		case <- ph.requestLog:
+		case <-ph.requestLog:
 			return
 		}
 	}
@@ -211,7 +225,7 @@ func renderError(w http.ResponseWriter, t string, s string) {
 
 	e := phpError{
 		ErrorType: t,
-		Text: s,
+		Text:      s,
 	}
 
 	err := tmpl.Execute(w, e)

@@ -19,11 +19,11 @@ func TestRunPhpReturnsErrors(t *testing.T) {
 }
 
 func TestListenOnDifferentPorts(t *testing.T) {
-	ph1, err := NewPhpHandler("test-dir", time.Second)
+	ph1, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph1.Close()
 	assert.Nil(t, err)
 
-	ph2, err := NewPhpHandler("test-dir", time.Second)
+	ph2, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph2.Close()
 	assert.Nil(t, err)
 
@@ -31,7 +31,7 @@ func TestListenOnDifferentPorts(t *testing.T) {
 }
 
 func TestNormalRequest(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second)
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -46,7 +46,7 @@ func TestNormalRequest(t *testing.T) {
 }
 
 func TestHeaders(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second)
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -62,7 +62,7 @@ func TestHeaders(t *testing.T) {
 }
 
 func TestRedirects(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second)
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -78,7 +78,7 @@ func TestRedirects(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second)
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -94,7 +94,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestErrorReset(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second)
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -116,7 +116,7 @@ func TestErrorReset(t *testing.T) {
 }
 
 func TestLocking(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second)
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -139,7 +139,7 @@ func TestLocking(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 100)
+	ph, err := NewPhpHandler("test-dir", 100, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -148,4 +148,19 @@ func TestTimeout(t *testing.T) {
 	assert.Nil(t, err)
 	ph.ServeHTTP(w, r)
 	assert.Equal(t, w.Code, 500)
+}
+
+func TestErrorIgnoring(t *testing.T) {
+	ph, err := NewPhpHandler("test-dir", time.Millisecond * 100, []string{"/error.php on line 1"})
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/error.php", nil)
+	assert.Nil(t, err)
+
+	ph.ServeHTTP(w, r)
+
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "123 ")
 }
