@@ -6,6 +6,7 @@ import (
 	"github.com/holizz/greyhound"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -27,6 +28,11 @@ func main() {
 	timeout := flag.Duration("t", time.Second * 5, "timeout in milliseconds")
 	flag.Var(&ignore, "i", "ignore errors matching this string")
 	flag.Parse()
+
+	if len(flag.Args()) > 0 {
+		flag.Usage()
+		os.Exit(0)
+	}
 
 	phpHandler, err := greyhound.NewPhpHandler(*dir, *timeout, ignore)
 	if err != nil {
