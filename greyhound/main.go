@@ -39,7 +39,9 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	http.Handle("/", phpHandler)
+	fallbackHandler := greyhound.NewFallbackHandler(*dir, ".php", phpHandler)
+
+	http.Handle("/", fallbackHandler)
 
 	fmt.Printf("Listening on :%d\n", *port)
 	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
