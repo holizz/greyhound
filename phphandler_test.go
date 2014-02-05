@@ -8,16 +8,6 @@ import (
 	"time"
 )
 
-func get(t *testing.T, h http.Handler, uri string) (w *httptest.ResponseRecorder) {
-	w = httptest.NewRecorder()
-	r, err := http.NewRequest("GET", uri, nil)
-	assert.Nil(t, err)
-
-	h.ServeHTTP(w, r)
-
-	return
-}
-
 func TestListenOnDifferentPorts(t *testing.T) {
 	ph1, err := NewPhpHandler("test-dir", time.Second, []string{})
 	defer ph1.Close()
