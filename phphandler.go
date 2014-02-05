@@ -33,7 +33,7 @@ type PhpHandler struct {
 // NewPhpHandler starts a new PHP server listening on the first free port (between port 8001 and 2^16).
 //
 // Usage:
-// 	ph, err := NewPhpHandler("/path/to/web/root", 1000)
+// 	ph, err := NewPhpHandler("/path/to/web/root", time.Second)
 // 	if err != nil {
 // 	        panic(err)
 // 	}

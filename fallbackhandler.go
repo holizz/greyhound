@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// If a request represents a file that doesn't end with fallbackSuffix, serve it with http.FileHandler, otherwise serve it with fallback.
 type FallbackHandler struct {
 	dir            string
 	fileServer     http.Handler
@@ -14,7 +15,6 @@ type FallbackHandler struct {
 	fallback       http.Handler
 }
 
-// If a request represents an extant non-directory file and that file doesn't end with fallbackSuffix, serve with an http.FileServer, otherwise use fallback.
 func NewFallbackHandler(dir string, fallbackSuffix string, fallback http.Handler) (fh *FallbackHandler) {
 	fh = &FallbackHandler{
 		dir:            dir,
