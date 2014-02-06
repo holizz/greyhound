@@ -10,16 +10,18 @@ import (
 
 // A low-level command
 // Starts PHP running, waits half a second, returns an error if PHP stopped during that time
-func runPhp(dir string, host string) (cmd *exec.Cmd, stdout chan string, stderr chan string, errorChan chan error, err error) {
-	cmd = exec.Command(
-		"php",
+func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan string, stderr chan string, errorChan chan error, err error) {
+	args := []string{
 		"-n", // do not read php.ini
 		"-S", host,
 		"-t", dir,
 		"-d", "display_errors=Off",
 		"-d", "log_errors=On",
 		"-d", "error_reporting=E_ALL",
-	)
+	}
+	args = append(args, extraArgs...)
+
+	cmd = exec.Command("php", args...)
 
 	// Connect stdout
 	_stdout, out := cmd.StdoutPipe()

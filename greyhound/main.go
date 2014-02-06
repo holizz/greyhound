@@ -27,14 +27,15 @@ func main() {
 	dir := flag.String("d", ".", "directory to serve")
 	timeout := flag.Duration("t", time.Second * 5, "timeout in milliseconds")
 	flag.Var(&ignore, "i", "ignore errors matching this string (multiple allowed)")
-	flag.Parse()
 
-	if len(flag.Args()) > 0 {
-		flag.Usage()
-		os.Exit(0)
+	flag.Usage = func () {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] -- [php options]\n", os.Args[0])
+		flag.PrintDefaults()
 	}
 
-	phpHandler, err := greyhound.NewPhpHandler(*dir, *timeout, ignore)
+	flag.Parse()
+
+	phpHandler, err := greyhound.NewPhpHandler(*dir, *timeout, flag.Args(), ignore)
 	defer phpHandler.Close()
 	if err != nil {
 		log.Fatalln(err)

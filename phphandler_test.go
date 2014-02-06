@@ -9,11 +9,11 @@ import (
 )
 
 func TestListenOnDifferentPorts(t *testing.T) {
-	ph1, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph1, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph1.Close()
 	assert.Nil(t, err)
 
-	ph2, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph2, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph2.Close()
 	assert.Nil(t, err)
 
@@ -21,7 +21,7 @@ func TestListenOnDifferentPorts(t *testing.T) {
 }
 
 func TestNormalRequest(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -32,7 +32,7 @@ func TestNormalRequest(t *testing.T) {
 }
 
 func TestHeaders(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -44,7 +44,7 @@ func TestHeaders(t *testing.T) {
 }
 
 func TestRedirects(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -56,7 +56,7 @@ func TestRedirects(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -68,7 +68,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestErrorReset(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -83,7 +83,7 @@ func TestErrorReset(t *testing.T) {
 }
 
 func TestLocking(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -102,7 +102,7 @@ func TestLocking(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", 100, []string{})
+	ph, err := NewPhpHandler("test-dir", 100, []string{}, []string{})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -111,7 +111,7 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestErrorIgnoring(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Millisecond*100, []string{"/error.php on line 1"})
+	ph, err := NewPhpHandler("test-dir", time.Millisecond*100, []string{}, []string{"/error.php on line 1"})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -122,7 +122,7 @@ func TestErrorIgnoring(t *testing.T) {
 }
 
 func TestFatalErrorIgnoring(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Millisecond*100, []string{"/"})
+	ph, err := NewPhpHandler("test-dir", time.Millisecond*100, []string{}, []string{"/"})
 	defer ph.Close()
 	assert.Nil(t, err)
 
@@ -130,4 +130,15 @@ func TestFatalErrorIgnoring(t *testing.T) {
 
 	assert.Equal(t, w.Code, 500)
 	assert.Contains(t, w.Body.String(), "PHP Fatal error:  Call to undefined function flub() in")
+}
+
+func TestPassingFlagsToPhp(t *testing.T) {
+	ph, err := NewPhpHandler("test-dir", time.Millisecond*100, []string{"-d", "error_reporting=E_STRICT"}, []string{})
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	w := get(t, ph, "/error.php")
+
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "123 ")
 }

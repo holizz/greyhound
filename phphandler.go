@@ -27,6 +27,7 @@ type PhpHandler struct {
 	errorChan  chan error
 	mutex      *sync.Mutex
 	timeout    time.Duration
+	args       []string
 	ignore     []string
 }
 
@@ -40,10 +41,11 @@ type PhpHandler struct {
 // 	defer ph.Close()
 //
 // timeout is in milliseconds
-func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpHandler, err error) {
+func NewPhpHandler(dir string, timeout time.Duration, args, ignore []string) (ph *PhpHandler, err error) {
 	ph = &PhpHandler{
 		dir: dir,
 		timeout: timeout,
+		args: args,
 		ignore: ignore,
 	}
 
@@ -57,7 +59,7 @@ func (ph *PhpHandler) start() (err error) {
 		// Use 127.0.0.1 here instead of localhost
 		// otherwise PHP only listens on ::1
 		ph.host = fmt.Sprintf("127.0.0.1:%d", p)
-		cmd, stdout, stderr, errorChan, err := runPhp(ph.dir, ph.host)
+		cmd, stdout, stderr, errorChan, err := runPhp(ph.dir, ph.host, ph.args)
 
 		if err == nil {
 			ph.cmd = cmd
