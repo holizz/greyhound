@@ -30,8 +30,8 @@ func (fh *FallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 
 	if !strings.HasSuffix(r.URL.Path, fh.fallbackSuffix) {
-		_, err := os.Stat(path)
-		if !os.IsNotExist(err) {
+		fileInfo, err := os.Stat(path)
+		if !os.IsNotExist(err) && !fileInfo.IsDir() {
 			fh.fileServer.ServeHTTP(w, r)
 			return
 		}

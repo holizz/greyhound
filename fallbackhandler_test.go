@@ -34,16 +34,15 @@ func TestStaticAndPhp(t *testing.T) {
 	assert.Equal(t, w.Body.String(), "abc")
 }
 
-func TestDirectoryListing(t *testing.T) {
+func TestNoDirectoryListing(t *testing.T) {
 	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
 	assert.Nil(t, err)
 	fh := NewFallbackHandler("test-dir", ".php", ph)
 
 	w := get(t, fh, "/")
 
-	assert.Equal(t, w.Code, 200)
-	assert.Contains(t, w.Body.String(), "plain.txt")
-	assert.Contains(t, w.Body.String(), "abc.php")
+	assert.Equal(t, w.Code, 404)
+	assert.Contains(t, w.Body.String(), `The requested resource <code class="url">/</code> was not found on this server.`)
 }
 
 func TestNonExistent(t *testing.T) {
