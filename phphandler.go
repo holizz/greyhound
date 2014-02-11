@@ -41,17 +41,25 @@ type PhpHandler struct {
 //
 // timeout is in milliseconds
 func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpHandler, err error) {
+	ph = &PhpHandler{
+		dir: dir,
+		timeout: timeout,
+		ignore: ignore,
+	}
+
+	err = ph.start()
+
+	return
+}
+
+func (ph *PhpHandler) start() (err error) {
 	for p := 8001; p < int(math.Pow(2, 16)); p++ {
-		ph = &PhpHandler{
-			dir: dir,
-			// Use 127.0.0.1 here instead of localhost
-			// otherwise PHP only listens on ::1
-			host: fmt.Sprintf("127.0.0.1:%d", p),
-		}
+		// Use 127.0.0.1 here instead of localhost
+		// otherwise PHP only listens on ::1
+		ph.host = fmt.Sprintf("127.0.0.1:%d", p)
 		cmd, stdout, stderr, errorChan, err := runPhp(ph.dir, ph.host)
 
 		if err == nil {
-			ph.timeout = timeout
 			ph.cmd = cmd
 			ph.stdout = stdout
 			ph.stderr = stderr
@@ -59,12 +67,24 @@ func NewPhpHandler(dir string, timeout time.Duration, ignore []string) (ph *PhpH
 			ph.requestLog = make(chan string)
 			ph.errorChan = errorChan
 			ph.mutex = &sync.Mutex{}
-			ph.ignore = ignore
 			go ph.listenForErrors()
-			return ph, nil
+			return nil
 		}
 	}
-	return nil, errors.New("no free ports found")
+	err = errors.New("no free ports found")
+	return
+}
+
+func (ph *PhpHandler) restart() {
+	err := ph.cmd.Process.Kill()
+	if err != nil {
+		panic(err)
+	}
+
+	err = ph.start()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Close must be called after a successful call to NewPhpHandler otherwise you may get stray PHP processes floating around.
@@ -120,7 +140,7 @@ FOR:
 	for {
 		select {
 		case <-ph.errorChan:
-			renderError(w, "earlyExitError", "The PHP command exited before it should have.")
+			ph.restart()
 			return
 		case <-ph.requestLog:
 			break FOR
