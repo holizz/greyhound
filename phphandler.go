@@ -141,6 +141,7 @@ FOR:
 		select {
 		case <-ph.errorChan:
 			ph.restart()
+			renderError(w, "earlyExitError", "The PHP command exited before it should have. It has been restarted.")
 			return
 		case <-ph.requestLog:
 			break FOR
