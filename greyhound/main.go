@@ -35,6 +35,7 @@ func main() {
 	}
 
 	phpHandler, err := greyhound.NewPhpHandler(*dir, *timeout, ignore)
+	defer phpHandler.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}

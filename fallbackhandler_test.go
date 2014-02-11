@@ -8,6 +8,7 @@ import (
 
 func TestStatic(t *testing.T) {
 	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	defer ph.Close()
 	assert.Nil(t, err)
 	fh := NewFallbackHandler("test-dir", ".phpx", ph)
 
@@ -19,6 +20,7 @@ func TestStatic(t *testing.T) {
 
 func TestStaticAndPhp(t *testing.T) {
 	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	defer ph.Close()
 	assert.Nil(t, err)
 
 	fh := NewFallbackHandler("test-dir", ".php", ph)
@@ -36,6 +38,7 @@ func TestStaticAndPhp(t *testing.T) {
 
 func TestNoDirectoryListing(t *testing.T) {
 	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	defer ph.Close()
 	assert.Nil(t, err)
 	fh := NewFallbackHandler("test-dir", ".php", ph)
 
@@ -47,6 +50,7 @@ func TestNoDirectoryListing(t *testing.T) {
 
 func TestNonExistent(t *testing.T) {
 	ph, err := NewPhpHandler("test-dir", time.Second, []string{})
+	defer ph.Close()
 	assert.Nil(t, err)
 	fh := NewFallbackHandler("test-dir", ".php", ph)
 
