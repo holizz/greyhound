@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/codegangsta/martini"
 	"github.com/holizz/greyhound"
 	"log"
 	"net/http"
@@ -41,9 +42,15 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	fallbackHandler := greyhound.NewFallbackHandler(*dir, ".php", phpHandler)
+	fallbackHandler := greyhound.NewFallbackHandler(*dir, ".php")
 
-	http.Handle("/", fallbackHandler)
+	m := martini.Classic()
+	m.Handlers(
+		fallbackHandler.ServeHTTP,
+		phpHandler.ServeHTTP,
+	)
+
+	http.Handle("/", m)
 
 	fmt.Printf("Listening on :%d\n", *port)
 	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))

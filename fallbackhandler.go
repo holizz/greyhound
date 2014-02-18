@@ -15,12 +15,11 @@ type FallbackHandler struct {
 	fallback       http.Handler
 }
 
-func NewFallbackHandler(dir string, fallbackSuffix string, fallback http.Handler) (fh *FallbackHandler) {
+func NewFallbackHandler(dir string, fallbackSuffix string) (fh *FallbackHandler) {
 	fh = &FallbackHandler{
 		dir:            dir,
 		fileServer:     http.FileServer(http.Dir(dir)),
 		fallbackSuffix: fallbackSuffix,
-		fallback:       fallback,
 	}
 	return
 }
@@ -36,6 +35,4 @@ func (fh *FallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	fh.fallback.ServeHTTP(w, r)
 }
