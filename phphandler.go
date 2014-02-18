@@ -189,10 +189,10 @@ FOR:
 func (ph *PhpHandler) listenForErrors() {
 	for {
 		line := <-ph.stderr
-		if line[25:37] != "] 127.0.0.1:" {
+		if len(line) > 37 && line[25:37] != "] 127.0.0.1:" {
 			ph.errorLog <- line[27:]
 		} else {
-			ph.requestLog <- line[38:]
+			ph.requestLog <- line
 		}
 	}
 }
