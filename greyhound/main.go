@@ -36,18 +36,14 @@ func main() {
 
 	flag.Parse()
 
-	phpHandler, err := greyhound.NewPhpHandler(*dir, *timeout, flag.Args(), ignore)
-	defer phpHandler.Close()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	queue := greyhound.NewQueuedPhpHandler(5, *dir, *timeout, flag.Args(), ignore)
 
 	fallbackHandler := greyhound.NewFallbackHandler(*dir, ".php")
 
 	m := martini.Classic()
 	m.Handlers(
 		fallbackHandler.ServeHTTP,
-		phpHandler.ServeHTTP,
+		queue.ServeHTTP,
 	)
 
 	http.Handle("/", m)
