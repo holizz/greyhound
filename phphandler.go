@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"os/exec"
@@ -17,7 +18,6 @@ import (
 // Due to the need to check for errors in the STDERR of the process it only allows one call to ServeHTTP() at a time (using sync.Mutex).
 type PhpHandler struct {
 	dir        string
-	port       int
 	host       string
 	cmd        *exec.Cmd
 	stdout     chan string
@@ -43,10 +43,10 @@ type PhpHandler struct {
 // timeout is in milliseconds
 func NewPhpHandler(dir string, timeout time.Duration, args, ignore []string) (ph *PhpHandler, err error) {
 	ph = &PhpHandler{
-		dir: dir,
+		dir:     dir,
 		timeout: timeout,
-		args: args,
-		ignore: ignore,
+		args:    args,
+		ignore:  ignore,
 	}
 
 	err = ph.start()
@@ -70,6 +70,7 @@ func (ph *PhpHandler) start() (err error) {
 			ph.errorChan = errorChan
 			ph.mutex = &sync.Mutex{}
 			go ph.listenForErrors()
+			ph.logln("start()ed")
 			return nil
 		}
 	}
@@ -78,6 +79,7 @@ func (ph *PhpHandler) start() (err error) {
 }
 
 func (ph *PhpHandler) restart() {
+	ph.logln("restart")
 	err := ph.cmd.Process.Kill()
 	if err != nil {
 		panic(err)
@@ -91,6 +93,7 @@ func (ph *PhpHandler) restart() {
 
 // Close must be called after a successful call to NewPhpHandler otherwise you may get stray PHP processes floating around.
 func (ph *PhpHandler) Close() {
+	ph.logln("Close")
 	err := ph.cmd.Process.Kill()
 	if err != nil {
 		panic(err)
@@ -101,8 +104,10 @@ func (ph *PhpHandler) Close() {
 //
 // If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpHandler).
 func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ph.logln(fmt.Sprintf("ServeHTTP (request for %s)", r.URL.String()))
 	ph.mutex.Lock()
 	defer ph.mutex.Unlock()
+	ph.logln("ServeHTTP post-mutex")
 
 	var err error
 
@@ -199,6 +204,7 @@ func (ph *PhpHandler) listenForErrors() {
 
 // Consumes all the errors until the request completes and then returns
 func (ph *PhpHandler) resetErrors() {
+	ph.logln("resetErrors")
 	for {
 		select {
 		case <-ph.errorLog:
@@ -207,4 +213,8 @@ func (ph *PhpHandler) resetErrors() {
 			return
 		}
 	}
+}
+
+func (ph *PhpHandler) logln(s string) {
+	log.Println(fmt.Sprintf("[%s] %s", ph.host, s))
 }
