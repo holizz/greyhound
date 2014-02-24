@@ -37,6 +37,7 @@ func main() {
 	flag.Parse()
 
 	queue := greyhound.NewQueuedPhpHandler(5, *dir, *timeout, flag.Args(), ignore)
+	defer queue.Close()
 
 	fallbackHandler := greyhound.NewFallbackHandler(*dir, ".php")
 
