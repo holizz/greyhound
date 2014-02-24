@@ -2,8 +2,6 @@ package greyhound
 
 import (
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -67,40 +65,6 @@ func TestErrors(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "/error.php on line 1")
 }
 
-func TestErrorReset(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
-	defer ph.Close()
-	assert.Nil(t, err)
-
-	// First request
-	w := get(t, ph, "/multiple-errors.php")
-	assert.Equal(t, w.Code, 500)
-
-	// Second request
-	w = get(t, ph, "/abc.php")
-	assert.Equal(t, w.Code, 200)
-	assert.Equal(t, w.Body.String(), "abc")
-}
-
-func TestLocking(t *testing.T) {
-	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
-	defer ph.Close()
-	assert.Nil(t, err)
-
-	// First request
-	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "/wait-and-error.php", nil)
-	assert.Nil(t, err)
-	go func() {
-		ph.ServeHTTP(w, r)
-		assert.Equal(t, w.Code, 500)
-	}()
-
-	// Second request
-	w = get(t, ph, "/abc.php")
-	assert.Equal(t, w.Code, 200)
-}
-
 func TestTimeout(t *testing.T) {
 	ph, err := NewPhpHandler("test-dir", 100, []string{}, []string{})
 	defer ph.Close()
@@ -141,4 +105,20 @@ func TestPassingFlagsToPhp(t *testing.T) {
 
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "123 ")
+}
+
+func TestFailOnSecondUse(t *testing.T) {
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	// First request
+	w := get(t, ph, "/abc.php")
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "abc")
+
+	// Second request
+	w = get(t, ph, "/abc.php")
+	assert.Equal(t, w.Code, 500)
+	assert.Contains(t, w.Body.String(), "cannot be used twice")
 }

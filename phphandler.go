@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -25,10 +24,10 @@ type PhpHandler struct {
 	errorLog   chan string
 	requestLog chan string
 	errorChan  chan error
-	mutex      *sync.Mutex
 	timeout    time.Duration
 	args       []string
 	ignore     []string
+	used       bool
 }
 
 // NewPhpHandler starts a new PHP server listening on the first free port (between port 8001 and 2^16).
@@ -68,7 +67,7 @@ func (ph *PhpHandler) start() (err error) {
 			ph.errorLog = make(chan string)
 			ph.requestLog = make(chan string)
 			ph.errorChan = errorChan
-			ph.mutex = &sync.Mutex{}
+			ph.used = false
 			go ph.listenForErrors()
 			ph.logln("start()ed")
 			return nil
@@ -78,36 +77,27 @@ func (ph *PhpHandler) start() (err error) {
 	return
 }
 
-func (ph *PhpHandler) restart() {
-	ph.logln("restart")
-	err := ph.cmd.Process.Kill()
-	if err != nil {
-		panic(err)
-	}
-
-	err = ph.start()
-	if err != nil {
-		panic(err)
-	}
-}
-
 // Close must be called after a successful call to NewPhpHandler otherwise you may get stray PHP processes floating around.
 func (ph *PhpHandler) Close() {
 	ph.logln("Close")
-	err := ph.cmd.Process.Kill()
-	if err != nil {
-		panic(err)
-	}
+	ph.used = true
+	ph.cmd.Process.Kill()
+	// Ignore the error this returns - it probably means the process has already been killed
 }
 
 // ServeHTTP sends an http.Request to the PHP process, writes what it gets to an http.ResponseWriter.
 //
 // If an error gets printed to STDERR during the request, it shows the error instead of what PHP returned. If the request takes too long it shows a message saying that the request took too long (see timeout option on NewPhpHandler).
 func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer ph.Close()
+
+	if ph.used {
+		ph.logln("ServeHTTP was called twice!")
+		renderError(w, "programmerError", "ServeHTTP cannot be used twice! Create a new PhpHandler.")
+		return
+	}
+
 	ph.logln(fmt.Sprintf("ServeHTTP (request for %s)", r.URL.String()))
-	ph.mutex.Lock()
-	defer ph.mutex.Unlock()
-	ph.logln("ServeHTTP post-mutex")
 
 	var err error
 
@@ -147,8 +137,7 @@ FOR:
 	for {
 		select {
 		case <-ph.errorChan:
-			ph.restart()
-			renderError(w, "earlyExitError", "The PHP command exited before it should have. It has been restarted.")
+			renderError(w, "earlyExitError", "The PHP command exited before it should have.")
 			return
 		case <-ph.requestLog:
 			break FOR
@@ -167,7 +156,6 @@ FOR:
 
 			if !ignoreError {
 				renderError(w, "interpreterError", line)
-				ph.resetErrors()
 				return
 			}
 		}
@@ -198,19 +186,6 @@ func (ph *PhpHandler) listenForErrors() {
 			ph.errorLog <- line[27:]
 		} else {
 			ph.requestLog <- line
-		}
-	}
-}
-
-// Consumes all the errors until the request completes and then returns
-func (ph *PhpHandler) resetErrors() {
-	ph.logln("resetErrors")
-	for {
-		select {
-		case <-ph.errorLog:
-			// consume the error
-		case <-ph.requestLog:
-			return
 		}
 	}
 }
