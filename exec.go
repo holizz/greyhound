@@ -57,7 +57,7 @@ func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan st
 	}()
 
 	select {
-	case <-time.After(time.Millisecond * 500):
+	case <-time.After(time.Second):
 		return
 	case err = <-errorChan:
 		return
