@@ -67,3 +67,24 @@ func TestNonExistent(t *testing.T) {
 	assert.Equal(t, w.Code, 404)
 	assert.Contains(t, w.Body.String(), `The requested resource <code class="url">/404.notfound</code> was not found on this server.`)
 }
+
+func TestWpMultisite(t *testing.T) {
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
+	defer ph.Close()
+	assert.Nil(t, err)
+	fh := NewFallbackHandler("test-dir", ".php")
+	m := martini.Classic()
+	m.Handlers(fh.ServeHTTP, ph.ServeHTTP)
+
+	// In WordPress we would see URLs like /sitename/wp-content/themes/xyz/assets/img/123.png
+	w := get(t, m, "/x/plain.txt")
+
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "This is not PHP\n")
+
+	// Oops, make sure this passes
+	w = get(t, m, "/x/plain.txt")
+
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "This is not PHP\n")
+}
