@@ -8,6 +8,25 @@ import (
 	"time"
 )
 
+// https://gist.github.com/tamagokun/3801087
+var routerPhp = `<?php
+ 
+$root = $_SERVER['DOCUMENT_ROOT'];
+chdir($root);
+$path = '/'.ltrim(parse_url($_SERVER['REQUEST_URI'])['path'],'/');
+set_include_path(get_include_path().':'.__DIR__);
+if(file_exists($root.$path))
+{
+	if(is_dir($root.$path) && substr($path,strlen($path) - 1, 1) !== '/')
+		$path = rtrim($path,'/').'/index.php';
+	if(strpos($path,'.php') === false) return false;
+	else {
+		chdir(dirname($root.$path));
+		require_once $root.$path;
+	}
+}else include_once 'index.php';
+`
+
 // A low-level command
 // Starts PHP running, waits half a second, returns an error if PHP stopped during that time
 func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan string, stderr chan string, errorChan chan error, err error) {
@@ -26,9 +45,15 @@ func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan st
 
 	cmd = exec.Command("php", args...)
 
+	// Connect stdin
+	_stdin, err := cmd.StdinPipe()
+	if err != nil {
+		panic(err)
+	}
+
 	// Connect stdout
-	_stdout, out := cmd.StdoutPipe()
-	if out != nil {
+	_stdout, err := cmd.StdoutPipe()
+	if err != nil {
 		return
 	}
 	stdout = chanify(&_stdout)
@@ -45,6 +70,8 @@ func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan st
 
 	go func() {
 		err = cmd.Run()
+		defer _stdin.Close()
+		io.WriteString(_stdin, routerPhp)
 		if err != nil {
 			errorChan <- err
 		} else {
