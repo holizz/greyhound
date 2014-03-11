@@ -38,23 +38,19 @@ func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan st
 	stderr = chanify(&_stderr)
 
 	// Let's go
-	err = cmd.Start()
-	if err != nil {
-		return
-	}
-
-	// Wait 1 second for the command to terminate
-	// If it exits early, that's bad whatever the exit status
 	errorChan = make(chan error)
 
 	go func() {
-		err := cmd.Wait()
+		err = cmd.Run()
 		if err != nil {
 			errorChan <- err
 		} else {
 			errorChan <- errors.New("command exited early")
 		}
 	}()
+
+	// Wait 1 second for the command to terminate
+	// If it exits early, that's bad whatever the exit status
 
 	select {
 	case <-time.After(time.Second):
