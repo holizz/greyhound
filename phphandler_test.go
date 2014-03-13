@@ -122,3 +122,13 @@ func TestFailOnSecondUse(t *testing.T) {
 	assert.Equal(t, w.Code, 500)
 	assert.Contains(t, w.Body.String(), "cannot be used twice")
 }
+
+func TestWpAdminRewriting(t *testing.T) {
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
+	defer ph.Close()
+	assert.Nil(t, err)
+
+	w := get(t, ph, "/xyz/wp-admin/test.php")
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "/xyz/wp-admin/test.php")
+}
