@@ -125,7 +125,7 @@ func (ph *PhpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// End timeout stuff
 
 	if err != nil {
-		renderError(w, "requestError", "The request could not be performed for an unknown reason.")
+		renderError(w, "requestError", fmt.Sprintf("The request could not be performed for an unknown reason: %#v", err))
 		return
 	}
 	defer resp.Body.Close()
