@@ -11,6 +11,7 @@ import (
 )
 
 var routerPhp = `<?php
+return false;
 `
 
 func createRouterPhp() string {
