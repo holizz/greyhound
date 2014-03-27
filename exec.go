@@ -28,7 +28,6 @@ func createRouterPhp() string {
 // Starts PHP running, waits half a second, returns an error if PHP stopped during that time
 func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan string, stderr chan string, errorChan chan error, err error) {
 	tmpFile := createRouterPhp()
-	defer os.Remove(tmpFile)
 
 	args := []string{
 		"-n", // do not read php.ini
@@ -64,6 +63,7 @@ func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan st
 	errorChan = make(chan error)
 
 	go func() {
+		defer os.Remove(tmpFile)
 		err = cmd.Run()
 		if err != nil {
 			errorChan <- err
