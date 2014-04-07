@@ -1,10 +1,11 @@
 package greyhound
 
 import (
-	"github.com/codegangsta/martini"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/codegangsta/martini"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStatic(t *testing.T) {
@@ -87,4 +88,18 @@ func TestWpMultisite(t *testing.T) {
 
 	assert.Equal(t, w.Code, 200)
 	assert.Equal(t, w.Body.String(), "This is not PHP\n")
+}
+
+func TestPhpWithPath(t *testing.T) {
+	ph, err := NewPhpHandler("test-dir", time.Second, []string{}, []string{})
+	defer ph.Close()
+	assert.Nil(t, err)
+	fh := NewFallbackHandler("test-dir", ".php")
+	m := martini.Classic()
+	m.Handlers(fh.ServeHTTP, ph.ServeHTTP)
+
+	w := get(t, m, "/abc.php/123")
+
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, w.Body.String(), "abc")
 }
