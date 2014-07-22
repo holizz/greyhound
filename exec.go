@@ -21,6 +21,7 @@ func runPhp(dir, host string, extraArgs []string) (cmd *exec.Cmd, stdout chan st
 		"-d", "upload_max_filesize=1024G",
 		"-d", "post_max_size=1024G",
 		"-d", "max_execution_time=0",
+		"-d", "memory_limit=128M",
 	}
 	args = append(args, extraArgs...)
 
