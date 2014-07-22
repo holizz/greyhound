@@ -16,4 +16,3 @@ func get(t *testing.T, h http.Handler, uri string) (w *httptest.ResponseRecorder
 
 	return
 }
-
